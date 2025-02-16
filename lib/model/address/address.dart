@@ -10,6 +10,7 @@ class Address {
   String collectionId;
   String collectionName;
   String id;
+  String type;
   List<String> idUser;
   String street;
   String city;
@@ -21,6 +22,7 @@ class Address {
     required this.collectionId,
     required this.collectionName,
     required this.id,
+    required this.type,
     required this.idUser,
     required this.street,
     required this.city,
@@ -32,7 +34,8 @@ class Address {
   factory Address.fromJson(Map<String, dynamic> json) => Address(
         collectionId: json["collectionId"] ?? "",
         collectionName: json["collectionName"] ?? "",
-        id: json["id"] ?? "", // Ensure id is never null
+        id: json["id"] ?? "",
+        type: json["type"] ?? "Nomal",
         idUser: (json["id_user"] as List<dynamic>?)
                 ?.map((x) => x.toString())
                 .toList() ??
@@ -52,6 +55,7 @@ class Address {
         "collectionId": collectionId,
         "collectionName": collectionName,
         "id": id,
+        "type": type,
         "id_user": List<dynamic>.from(idUser.map((x) => x)),
         "street": street,
         "city": city,
@@ -62,6 +66,6 @@ class Address {
 
   @override
   String toString() {
-    return 'Address{collectionId: $collectionId, collectionName: $collectionName, id: $id, idUser: $idUser, stress: $street, city: $city, state: $state, created: $created, updated: $updated}';
+    return 'Address{collectionId: $collectionId, collectionName: $collectionName, id: $id, type: $type, idUser: $idUser, stress: $street, city: $city, state: $state, created: $created, updated: $updated}';
   }
 }

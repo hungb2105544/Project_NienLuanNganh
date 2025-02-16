@@ -1,6 +1,7 @@
 import 'package:crystal_navigation_bar/crystal_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:project/account_page.dart';
+import 'package:project/address_page.dart';
 import 'package:project/home.dart';
 
 enum _SelectedTab { home, favorite, add, search, person }
@@ -24,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Home(),
     Home(),
     Home(),
-    Home(),
+    AddressPage(),
     AccountPage(),
   ];
 
