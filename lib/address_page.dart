@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:project/auth_service.dart';
 import 'package:project/model/address/address.dart';
 import 'package:project/model/address/address_manager.dart';
+import 'package:project/model/user/user.dart';
 
 class AddressPage extends StatefulWidget {
   const AddressPage({super.key});
@@ -13,8 +15,8 @@ class _AddressPageState extends State<AddressPage> {
   final AddressManager addressManager = AddressManager();
   List<Address> address = [];
 
-  void _fetchAddresses() async {
-    await addressManager.fetchAddresses();
+  void _fetchAddresses(User user) async {
+    await addressManager.getAddressesByUserId(user.id);
     setState(() {
       address = addressManager.addresses;
     });
@@ -23,7 +25,9 @@ class _AddressPageState extends State<AddressPage> {
   @override
   void initState() {
     super.initState();
-    _fetchAddresses();
+    final authenService = AuthService();
+    User? user = AuthService().currentUser;
+    _fetchAddresses(user!);
   }
 
   @override

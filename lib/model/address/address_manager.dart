@@ -41,4 +41,18 @@ class AddressManager {
       return null; // Return null to avoid crashes
     }
   }
+
+  Future<List<Address>> getAddressesByUserId(String userId) async {
+    try {
+      final records = await dataBase.pb.collection('address').getList(
+            filter: 'id_user = "$userId"',
+          );
+      return records.items
+          .map((record) => Address.fromJson(record.data))
+          .toList();
+    } catch (e) {
+      print('Error fetching addresses with user ID $userId: $e');
+      return []; // Return empty list to avoid crashes
+    }
+  }
 }
