@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/auth_service.dart';
+import 'package:project/information_address_page.dart';
 import 'package:project/model/address/address.dart';
 import 'package:project/model/address/address_manager.dart';
 import 'package:project/model/user/user.dart';
@@ -14,13 +15,13 @@ class AddressPage extends StatefulWidget {
 
 class _AddressPageState extends State<AddressPage> {
   final AddressManager addressManager = AddressManager();
-  List<Address> address = [];
+  List<Address> addresses = [];
+
   Future<void> _fetchAddresses(User user) async {
     List<Address> fetchedAddresses =
         await addressManager.getAddressesByUserId(user.id.toString());
     setState(() {
-      address = fetchedAddresses;
-      print(address);
+      addresses = fetchedAddresses;
     });
   }
 
@@ -31,7 +32,6 @@ class _AddressPageState extends State<AddressPage> {
       final AuthService authService =
           Provider.of<AuthService>(context, listen: false);
       final user = authService.currentUser;
-      print(user?.id);
       if (user != null) {
         _fetchAddresses(user);
       } else {
@@ -49,13 +49,21 @@ class _AddressPageState extends State<AddressPage> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: address.isEmpty
+          child: addresses.isEmpty
               ? Center(child: Text('No address found!'))
               : ListView.builder(
                   physics: const BouncingScrollPhysics(),
-                  itemCount: address.length,
+                  itemCount: addresses.length,
                   itemBuilder: (context, index) {
-                    return AddressItem(address: address[index]);
+                    return AddressItem(
+                      address: addresses[index],
+                      onAddressUpdated: (updatedAddress) {
+                        setState(() {
+                          // Update the address in the list after editing
+                          addresses[index] = updatedAddress;
+                        });
+                      },
+                    );
                   },
                 ),
         ),
@@ -65,8 +73,14 @@ class _AddressPageState extends State<AddressPage> {
 }
 
 class AddressItem extends StatelessWidget {
-  const AddressItem({super.key, required this.address});
+  const AddressItem({
+    super.key,
+    required this.address,
+    required this.onAddressUpdated,
+  });
+
   final Address address;
+  final Function(Address updatedAddress) onAddressUpdated;
 
   @override
   Widget build(BuildContext context) {
@@ -92,14 +106,19 @@ class AddressItem extends StatelessWidget {
             style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
           trailing: const Icon(Icons.arrow_forward_ios),
-          onTap: () {
-            // Điều hướng đến trang chi tiết địa chỉ (nếu có)
-            // Navigator.push(
-            //   context,
-            //   MaterialPageRoute(
-            //     builder: (context) => AddressInformationPage(address: address),
-            //   ),
-            // );
+          onTap: () async {
+            // Navigate to the information address page
+            final updatedAddress = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => InformationAddressPage(address: address),
+              ),
+            );
+
+            if (updatedAddress != null) {
+              // When the address is updated, update it in the list
+              onAddressUpdated(updatedAddress);
+            }
           },
         ),
       ),

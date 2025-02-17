@@ -54,4 +54,33 @@ class AddressManager {
       return []; // Trả về danh sách rỗng để tránh crash ứng dụng
     }
   }
+
+  Future<void> updateAddress(Address address) async {
+    try {
+      // Send the updated address to Firestore (or other backend)
+      final updatedAddress = await dataBase.pb.collection('address').update(
+        address.id,
+        body: {
+          'type': address.type,
+          'id_user': address.id_user,
+          'street': address.street,
+          'city': address.city,
+          'state': address.state,
+          'updated': address.updated.toIso8601String(),
+        },
+      );
+
+      // Check for a null response, throw if necessary
+      if (updatedAddress == null) {
+        throw Exception("Failed to update address: No response from server");
+      }
+
+      // Optionally, return or log the successful update
+      print("Address updated successfully: ${updatedAddress.id}");
+    } catch (e) {
+      // Handle the error
+      print('Error updating address: $e');
+      rethrow; // Optionally rethrow to propagate the error to the caller
+    }
+  }
 }
