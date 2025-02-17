@@ -45,14 +45,13 @@ class AddressManager {
   Future<List<Address>> getAddressesByUserId(String userId) async {
     try {
       final records = await dataBase.pb.collection('address').getList(
-            filter: 'id_user = "$userId"',
+            filter: 'id_user ?~ "$userId"', // Dùng `?~` để kiểm tra trong mảng
           );
       return records.items
-          .map((record) => Address.fromJson(record.data))
+          .map((record) => Address.fromJson(record.toJson()))
           .toList();
     } catch (e) {
-      print('Error fetching addresses with user ID $userId: $e');
-      return []; // Return empty list to avoid crashes
+      return []; // Trả về danh sách rỗng để tránh crash ứng dụng
     }
   }
 }
