@@ -16,10 +16,12 @@ class CartView extends StatefulWidget {
 
 class _CartViewState extends State<CartView> {
   late int total = 0;
+  late List<String> listId = [];
   final List<Product> listProduct = [];
   final ProductManager productManager = ProductManager();
   Future<void> fetchProduct(Cart cart) async {
     List<Product> list = [];
+
     for (var item in cart.productId) {
       final product = await productManager.getProductById(item);
       list.add(product);
@@ -43,11 +45,15 @@ class _CartViewState extends State<CartView> {
     });
   }
 
+  void updateListProduct(Function(List<String>) updateFunction) {
+    setState(() {
+      listId = updateFunction(listId);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    print('CartView');
-    print('${widget.cart}\n');
-    print(' Deg bug in Cart View : \n ${listProduct}');
+    print(listId);
     return Stack(
       children: [
         Scaffold(
@@ -62,6 +68,7 @@ class _CartViewState extends State<CartView> {
             for (var item in listProduct)
               CartItem(
                 product: item,
+                onListProductChanged: updateListProduct,
                 onTotalChanged: updateTotal,
               ),
           ]),

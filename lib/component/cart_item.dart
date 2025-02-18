@@ -6,10 +6,12 @@ class CartItem extends StatefulWidget {
   CartItem({
     super.key,
     required this.onTotalChanged,
+    required this.onListProductChanged,
     required this.product,
   });
 
   final Function(int) onTotalChanged;
+  final Function(Function(List<String>) updateFunction) onListProductChanged;
   final Product product;
 
   @override
@@ -67,11 +69,31 @@ class _CartItemState extends State<CartItem> {
               borderRadius: BorderRadius.circular(5),
             ),
             onChanged: (value) {
+              // setState(() {
+              //   _isChecked = value!;
+              //   widget.onTotalChanged(_isChecked
+              //       ? widget.product.price.toInt() * number
+              //       : -widget.product.price.toInt() * number);
+              // });
               setState(() {
                 _isChecked = value!;
+
+                // Cập nhật tổng tiền
                 widget.onTotalChanged(_isChecked
                     ? widget.product.price.toInt() * number
                     : -widget.product.price.toInt() * number);
+
+                widget.onListProductChanged((prevList) {
+                  List<String> updatedList = List.from(prevList);
+                  if (_isChecked) {
+                    if (!updatedList.contains(widget.product.id)) {
+                      updatedList.add(widget.product.id);
+                    }
+                  } else {
+                    updatedList.remove(widget.product.id);
+                  }
+                  return updatedList;
+                });
               });
             },
           ),
