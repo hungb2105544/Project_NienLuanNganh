@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:project/auth_service.dart';
 import 'package:project/component/card_product.dart';
 import 'package:project/component/cart.dart';
+import 'package:project/model/cart/cart.dart';
+import 'package:project/model/cart/cart_manager.dart';
 import 'package:project/model/product/product.dart';
 import 'package:project/model/product/product_manager.dart';
+import 'package:project/model/user/user.dart';
+import 'package:provider/provider.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -14,15 +19,33 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final TextEditingController searchController = TextEditingController();
   final ProductManager productManager = ProductManager();
+  final CartManager cartManager = CartManager();
+  late AuthService authService;
+  late User user;
+  int numberOfCart = 0;
+
+  Future<void> _fetchCartItems(User user) async {
+    await cartManager.fetchCartItemsByid(user);
+    setState(() {
+      numberOfCart = cartManager.cart.productId.length;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    productManager.fetchProducts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      authService = Provider.of<AuthService>(context, listen: false);
+      user = authService.currentUser!;
+      _fetchCartItems(user);
+      productManager.fetchProducts();
+    });
   }
 
   @override
   void dispose() {
     productManager.dispose();
+    searchController.dispose();
     super.dispose();
   }
 
@@ -62,7 +85,10 @@ class _HomeState extends State<Home> {
               ),
               actions: [
                 Container(
-                  child: const Cart(numberOfCart: 0),
+                  child: CartIcon(
+                    numberOfCart: numberOfCart,
+                    cart: cartManager.cart,
+                  ),
                   margin: EdgeInsets.only(right: 10),
                 ),
               ],

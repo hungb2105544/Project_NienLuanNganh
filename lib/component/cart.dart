@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:project/cart_view.dart';
+import 'package:project/model/cart/cart.dart';
 
-class Cart extends StatefulWidget {
-  const Cart({super.key, required this.numberOfCart});
+class CartIcon extends StatefulWidget {
+  const CartIcon({super.key, required this.numberOfCart, required this.cart});
   final int numberOfCart;
+  final Cart cart;
   @override
-  State<Cart> createState() => _CartState();
+  State<CartIcon> createState() => _CartIconState();
 }
 
-class _CartState extends State<Cart> {
+class _CartIconState extends State<CartIcon> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -44,7 +46,7 @@ class _CartState extends State<Cart> {
                 context,
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) =>
-                      CartView(),
+                      CartView(cart: widget.cart),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
                     const begin = Offset(1.0, 0.0);

@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/component/couter.dart';
-
-class Products {
-  String name;
-  int price;
-
-  Products({required this.name, required this.price});
-}
+import 'package:project/model/product/product.dart';
 
 class CartItem extends StatefulWidget {
   CartItem({
@@ -14,9 +8,9 @@ class CartItem extends StatefulWidget {
     required this.onTotalChanged,
     required this.product,
   });
-  final Function(int) onTotalChanged;
 
-  final Products product;
+  final Function(int) onTotalChanged;
+  final Product product;
 
   @override
   State<CartItem> createState() => _CartItemState();
@@ -24,128 +18,135 @@ class CartItem extends StatefulWidget {
 
 class _CartItemState extends State<CartItem> {
   bool _isChecked = false;
-
   int number = 1;
 
   void increaseNumber() {
-    setState(
-      () {
-        number++;
-        if (_isChecked) {
-          widget.onTotalChanged(widget.product.price);
-        }
-      },
-    );
+    setState(() {
+      number++;
+      if (_isChecked) {
+        widget.onTotalChanged(widget.product.price.toInt());
+      }
+    });
   }
 
   void decreaseNumber() {
-    setState(
-      () {
-        if (number > 1) {
-          number--;
-          if (_isChecked) {
-            widget.onTotalChanged(-widget.product.price);
-          }
+    setState(() {
+      if (number > 1) {
+        number--;
+        if (_isChecked) {
+          widget.onTotalChanged(-widget.product.price.toInt());
         }
-      },
-    );
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: EdgeInsets.all(10),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
             color: Colors.black12,
-            width: 1,
+            blurRadius: 10,
+            offset: Offset(0, 4),
           ),
-        ),
-      ),
-      height: MediaQuery.of(context).size.height * 0.16,
-      padding: EdgeInsets.only(
-        top: 10,
+        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Checkbox(
             value: _isChecked,
+            activeColor: Colors.black,
+            checkColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(5),
+            ),
             onChanged: (value) {
               setState(() {
                 _isChecked = value!;
                 widget.onTotalChanged(_isChecked
-                    ? widget.product.price * number
-                    : -widget.product.price * number);
+                    ? widget.product.price.toInt() * number
+                    : -widget.product.price.toInt() * number);
               });
             },
           ),
 
-          // Product image
-          Container(
-            width: MediaQuery.of(context).size.width * 0.15,
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage('assets/images/anh.png'),
-                fit: BoxFit.cover,
-              ),
+          // Product Image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              "http://10.0.2.2:8090/api/files/products/${widget.product.id}/${widget.product.image}",
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
             ),
           ),
 
-          // Product information
-          Container(
-            margin: EdgeInsets.only(left: 10),
-            width: MediaQuery.of(context).size.width * 0.5,
-            child: Column(
-              spacing: 10,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${widget.product.name}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Price: ${widget.product.price}đ',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
-                  ),
-                ),
-                Row(
-                  children: [
-                    Text('Quantity: '),
-                    CounterProduct(
-                      number: number,
-                      increaseNumber: increaseNumber,
-                      decreaseNumber: decreaseNumber,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          // Product Information
           Expanded(
-            child: Container(
-              width: 20,
-              color: const Color.fromARGB(255, 235, 83, 72),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.delete,
-                      size: 16,
-                      color: Colors.white,
+                  Text(
+                    widget.product.name,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
-                    onPressed: () {},
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'Price: ${widget.product.price}đ',
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        'Quantity: ',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      CounterProduct(
+                        number: number,
+                        increaseNumber: increaseNumber,
+                        decreaseNumber: decreaseNumber,
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-          )
+          ),
+
+          // Delete Button
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.delete, color: Colors.white),
+              onPressed: () {
+                // Handle delete action
+              },
+            ),
+          ),
         ],
       ),
     );

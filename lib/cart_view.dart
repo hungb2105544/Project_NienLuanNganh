@@ -1,28 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:project/component/cart_item.dart';
+import 'package:project/model/cart/cart.dart';
+import 'package:project/model/product/product.dart';
+import 'package:project/model/product/product_manager.dart';
 
 class CartView extends StatefulWidget {
   const CartView({
     super.key,
+    required this.cart,
   });
-  // final List<CartItem> cartItems;  required this.cartItems
+  final Cart cart;
   @override
   State<CartView> createState() => _CartViewState();
 }
 
 class _CartViewState extends State<CartView> {
   late int total = 0;
+  final List<Product> listProduct = [];
+  final ProductManager productManager = ProductManager();
+  Future<void> fetchProduct(Cart cart) async {
+    List<Product> list = [];
+    for (var item in cart.productId) {
+      final product = await productManager.getProductById(item);
+      list.add(product);
+    }
 
-  Set<Products> product = {
-    Products(name: 'Iphone 13', price: 20000000),
-    Products(name: 'Iphone 13', price: 20000000),
-    Products(name: 'Iphone 13', price: 20000000),
-    Products(name: 'Iphone 13', price: 20000000),
-  };
+    setState(() {
+      listProduct.addAll(list);
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    fetchProduct(widget.cart);
     total = 0;
   }
 
@@ -34,6 +45,9 @@ class _CartViewState extends State<CartView> {
 
   @override
   Widget build(BuildContext context) {
+    print('CartView');
+    print('${widget.cart}\n');
+    print(' Deg bug in Cart View : \n ${listProduct}');
     return Stack(
       children: [
         Scaffold(
@@ -45,7 +59,7 @@ class _CartViewState extends State<CartView> {
             )),
           ),
           body: ListView(children: [
-            for (var item in product)
+            for (var item in listProduct)
               CartItem(
                 product: item,
                 onTotalChanged: updateTotal,
@@ -64,25 +78,32 @@ class _CartViewState extends State<CartView> {
                 ),
                 Spacer(),
                 Container(
-                  // color: Colors.cyan[900],
                   margin: EdgeInsets.only(right: 20),
                   child: ElevatedButton(
-                    style: ButtonStyle(
-                      backgroundColor:
-                          WidgetStateProperty.all(Colors.cyan[900]),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black, // Elegant black theme
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 5, // Adds depth
+                      shadowColor: Colors.black45,
                     ),
                     onPressed: () {
-                      //Thanh toán xử lí backend nhập lên cơ sở dữ liệu
+                      // Handle checkout logic
                     },
                     child: Text(
-                      'Thanh toán',
+                      'Place Order',
                       style: TextStyle(
                         fontSize: 18,
+                        fontWeight: FontWeight.bold,
                         color: Colors.white,
+                        letterSpacing: 1.2,
                       ),
                     ),
                   ),
-                ),
+                )
               ],
             ),
           ),
@@ -91,33 +112,3 @@ class _CartViewState extends State<CartView> {
     );
   }
 }
-
-
-                                  // Navigator.pop(
-                                  //   context,
-                                  //   PageRouteBuilder(
-                                  //     pageBuilder: (context, animation,
-                                  //             secondaryAnimation) =>
-                                  //         Login(),
-                                  //     transitionsBuilder: (context, animation,
-                                  //         secondaryAnimation, child) {
-                                  //       const begin = Offset(0.0, 1.0);
-                                  //       const end = Offset.zero;
-                                  //       const curve = Curves.easeInOut;
-
-                                  //       var tween = Tween(
-                                  //               begin: begin, end: end)
-                                  //           .chain(CurveTween(curve: curve));
-                                  //       var offsetAnimation =
-                                  //           animation.drive(tween);
-
-                                  //       return SlideTransition(
-                                  //         position: offsetAnimation,
-                                  //         child: FadeTransition(
-                                  //           opacity: animation,
-                                  //           child: child,
-                                  //         ),
-                                  //       );
-                                  //     },
-                                  //   ),
-                                  // );

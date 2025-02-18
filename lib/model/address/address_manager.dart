@@ -55,6 +55,17 @@ class AddressManager {
     }
   }
 
+  Future<void> deleteAddress(String id) async {
+    try {
+      final deletedAddress = await dataBase.pb.collection('address').delete(id);
+      _addresses.removeWhere((address) => address.id == id);
+      print("Address deleted successfully: $id");
+    } catch (e) {
+      print('Error deleting address: $e');
+      rethrow;
+    }
+  }
+
   Future<void> updateAddress(Address address) async {
     try {
       // Send the updated address to Firestore (or other backend)
