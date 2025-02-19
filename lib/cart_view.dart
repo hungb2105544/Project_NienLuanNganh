@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:project/auth_service.dart';
 import 'package:project/component/cart_item.dart';
 import 'package:project/model/cart/cart.dart';
 import 'package:project/model/product/product.dart';
 import 'package:project/model/product/product_manager.dart';
+import 'package:project/order_temp.dart';
+import 'package:provider/provider.dart';
 
 class CartView extends StatefulWidget {
   const CartView({
@@ -16,6 +19,7 @@ class CartView extends StatefulWidget {
 
 class _CartViewState extends State<CartView> {
   late int total = 0;
+  //Danh sach sanr pham de taoj Order
   late List<String> listId = [];
   final List<Product> listProduct = [];
   final ProductManager productManager = ProductManager();
@@ -53,7 +57,6 @@ class _CartViewState extends State<CartView> {
 
   @override
   Widget build(BuildContext context) {
-    print(listId);
     return Stack(
       children: [
         Scaffold(
@@ -97,8 +100,14 @@ class _CartViewState extends State<CartView> {
                       elevation: 5, // Adds depth
                       shadowColor: Colors.black45,
                     ),
-                    onPressed: () {
-                      // Handle checkout logic
+                    onPressed: () => {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => OrderTemp(
+                                  listId: listId,
+                                )),
+                      )
                     },
                     child: Text(
                       'Place Order',
@@ -119,3 +128,9 @@ class _CartViewState extends State<CartView> {
     );
   }
 }
+
+
+/*
+ LỖI : CHƯA LẤY ĐỰOH SỐ LƯỢNG SẢN PHẨM ĐỂ TẠO ORDER
+ HƯỚNG PHÁT TRIỂN : LẤY SỐ LƯỢNG SẢN PHẨM ĐỂ TẠO ORDER TRONG KHI LÀM LUẬN VĂN
+ */

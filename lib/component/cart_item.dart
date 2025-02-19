@@ -69,12 +69,6 @@ class _CartItemState extends State<CartItem> {
               borderRadius: BorderRadius.circular(5),
             ),
             onChanged: (value) {
-              // setState(() {
-              //   _isChecked = value!;
-              //   widget.onTotalChanged(_isChecked
-              //       ? widget.product.price.toInt() * number
-              //       : -widget.product.price.toInt() * number);
-              // });
               setState(() {
                 _isChecked = value!;
 

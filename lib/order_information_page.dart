@@ -122,6 +122,7 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
                     ),
                   ),
                 ),
+                SizedBox(height: 8),
                 Container(
                   width: double.infinity,
                   height: 100,
@@ -195,6 +196,7 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
                     ],
                   ),
                 ),
+                SizedBox(height: 16),
                 Container(
                   margin: EdgeInsets.only(left: 8),
                   child: Text(
