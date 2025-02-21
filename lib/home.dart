@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:project/auth_service.dart';
 import 'package:project/component/card_product.dart';
 import 'package:project/component/cart.dart';
-import 'package:project/model/cart/cart.dart';
 import 'package:project/model/cart/cart_manager.dart';
 import 'package:project/model/product/product.dart';
 import 'package:project/model/product/product_manager.dart';

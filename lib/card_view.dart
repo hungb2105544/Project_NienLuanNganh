@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:project/auth_service.dart';
+import 'package:project/home_screen.dart';
+import 'package:project/model/cart/cart.dart';
+import 'package:project/model/database/pocketbase.dart';
 import 'package:project/model/product/product.dart';
+import 'package:provider/provider.dart';
 
 class CardView extends StatefulWidget {
   final Product product;
@@ -16,6 +21,26 @@ class _CardViewState extends State<CardView> {
 
   // Danh sách các kích cỡ có sẵn (giả sử sản phẩm có các kích cỡ)
   final List<String> availableSizes = ['S', 'M', 'L', 'XL'];
+
+  Future<void> addToCart(String idProduct) async {
+    try {
+      final AuthService authService =
+          Provider.of<AuthService>(context, listen: false);
+      final user = authService.currentUser;
+      final DataBase dataBase = DataBase();
+      final record = await dataBase.pb.collection("cart").getFullList(
+            filter: 'user_id = "${user!.id}"',
+          );
+      final Cart cart = Cart.fromJson(record.first.toJson());
+      cart.productId.add(idProduct);
+      await dataBase.pb.collection("cart").update(cart.id, body: {
+        "product_id": cart.productId,
+      });
+      print('Add to cart successfully');
+    } catch (e) {
+      print("Them vao that bai !! : ${e.toString()}");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,19 +189,69 @@ class _CardViewState extends State<CardView> {
             child: ElevatedButton(
               onPressed: () {
                 if (selectedSize == null) {
-                  // Hiển thị thông báo nếu chưa chọn kích cỡ
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please select a size'),
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded,
+                              color: Colors.white, size: 24), // Icon 'done'
+                          SizedBox(width: 10), // Khoảng cách giữa icon và text
+                          Text(
+                            'Please select size',
+                            style: TextStyle(
+                              color: Colors.white, // Màu chữ trắng
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.black, // Nền đen sang trọng
+                      behavior: SnackBarBehavior.floating, // Kiểu nổi
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(12), // Bo góc mềm mại
+                      ),
+                      elevation: 6, // Đổ bóng nhẹ giúp nổi bật hơn
+                      duration: Duration(seconds: 2), // Hiển thị trong 2 giây
                     ),
                   );
                 } else {
                   // Xử lý thêm sản phẩm vào giỏ hàng
+                  addToCart(widget.product.id);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(
-                          '${widget.product.name} (Size: $selectedSize, Quantity: $quantity) added to cart'),
+                      content: Row(
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.white, size: 24), // Icon 'done'
+                          SizedBox(width: 10), // Khoảng cách giữa icon và text
+                          Text(
+                            'Added to cart successfully',
+                            style: TextStyle(
+                              color: Colors.white, // Màu chữ trắng
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      backgroundColor: Colors.black, // Nền đen sang trọng
+                      behavior: SnackBarBehavior.floating, // Kiểu nổi
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(12), // Bo góc mềm mại
+                      ),
+                      elevation: 6, // Đổ bóng nhẹ giúp nổi bật hơn
+                      duration: Duration(seconds: 2), // Hiển thị trong 2 giây
                     ),
+                  );
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            HomeScreen()), // Thay HomePage() bằng widget trang chủ của bạn
+                    (route) => false, // Xóa tất cả các route trước đó
                   );
                 }
               },
