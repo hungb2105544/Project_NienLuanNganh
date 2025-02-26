@@ -44,6 +44,27 @@ class Cart {
         "created": created.toIso8601String(),
         "updated": updated.toIso8601String(),
       };
+
+  Cart copyWith({
+    String? collectionId,
+    String? collectionName,
+    String? id,
+    String? userId,
+    List<String>? productId,
+    DateTime? created,
+    DateTime? updated,
+  }) {
+    return Cart(
+      collectionId: collectionId ?? this.collectionId,
+      collectionName: collectionName ?? this.collectionName,
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      productId: productId ?? this.productId,
+      created: created ?? this.created,
+      updated: updated ?? this.updated,
+    );
+  }
+
   @override
   String toString() {
     return 'Cart{collectionId: $collectionId, collectionName: $collectionName, id: $id, userId: $userId, productId: $productId, created: $created, updated: $updated}';

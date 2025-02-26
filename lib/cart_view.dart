@@ -4,41 +4,47 @@ import 'package:project/component/cart_item.dart';
 import 'package:project/model/cart/cart.dart';
 import 'package:project/model/product/product.dart';
 import 'package:project/model/product/product_manager.dart';
+import 'package:project/model/user/user.dart';
 import 'package:project/order_temp.dart';
+import 'package:project/model/cart/cart_manager.dart';
 import 'package:provider/provider.dart';
 
 class CartView extends StatefulWidget {
   const CartView({
     super.key,
     required this.cart,
+    required this.user,
   });
   final Cart cart;
+  final User user;
+
   @override
   State<CartView> createState() => _CartViewState();
 }
 
 class _CartViewState extends State<CartView> {
   late int total = 0;
-  //Danh sach sanr pham de taoj Order
   late List<String> listId = [];
   final List<Product> listProduct = [];
   final ProductManager productManager = ProductManager();
+  final CartManager cartManager = CartManager();
+
   Future<void> fetchProduct(Cart cart) async {
     List<Product> list = [];
-
     for (var item in cart.productId) {
       final product = await productManager.getProductById(item);
       list.add(product);
     }
-
     setState(() {
       listProduct.addAll(list);
+      listId = cart.productId;
     });
   }
 
   @override
   void initState() {
     super.initState();
+    cartManager.cart = widget.cart;
     fetchProduct(widget.cart);
     total = 0;
   }
@@ -55,6 +61,19 @@ class _CartViewState extends State<CartView> {
     });
   }
 
+  Future<void> removeProduct(Product product) async {
+    try {
+      await cartManager.removeProductFromCart(product.id);
+      setState(() {
+        listProduct.removeWhere((item) => item.id == product.id);
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to remove product: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -62,19 +81,25 @@ class _CartViewState extends State<CartView> {
         Scaffold(
           appBar: AppBar(
             title: Center(
-                child: Padding(
-              padding: const EdgeInsets.only(right: 50),
-              child: Text('Cart'),
-            )),
-          ),
-          body: ListView(children: [
-            for (var item in listProduct)
-              CartItem(
-                product: item,
-                onListProductChanged: updateListProduct,
-                onTotalChanged: updateTotal,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 50),
+                child: Text('Cart'),
               ),
-          ]),
+            ),
+          ),
+          body: listProduct.isEmpty
+              ? Center(child: Text('Your cart is empty'))
+              : ListView(
+                  children: [
+                    for (var item in listProduct)
+                      CartItem(
+                        product: item,
+                        onListProductChanged: updateListProduct,
+                        onTotalChanged: updateTotal,
+                        onDelete: () => removeProduct(item),
+                      ),
+                  ],
+                ),
           bottomNavigationBar: Container(
             height: MediaQuery.of(context).size.height * 0.1,
             child: Row(
@@ -91,24 +116,27 @@ class _CartViewState extends State<CartView> {
                   margin: EdgeInsets.only(right: 20),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black, // Elegant black theme
+                      backgroundColor: Colors.black,
                       padding:
                           EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      elevation: 5, // Adds depth
+                      elevation: 5,
                       shadowColor: Colors.black45,
                     ),
-                    onPressed: () => {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => OrderTemp(
-                                  listId: listId,
-                                )),
-                      )
-                    },
+                    onPressed: listProduct.isEmpty
+                        ? null
+                        : () => {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => OrderTemp(
+                                    listId: listId,
+                                  ),
+                                ),
+                              )
+                            },
                     child: Text(
                       'Place Order',
                       style: TextStyle(
@@ -128,9 +156,3 @@ class _CartViewState extends State<CartView> {
     );
   }
 }
-
-
-/*
- LỖI : CHƯA LẤY ĐỰOH SỐ LƯỢNG SẢN PHẨM ĐỂ TẠO ORDER
- HƯỚNG PHÁT TRIỂN : LẤY SỐ LƯỢNG SẢN PHẨM ĐỂ TẠO ORDER TRONG KHI LÀM LUẬN VĂN
- */

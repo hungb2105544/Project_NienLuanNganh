@@ -8,11 +8,13 @@ class CartItem extends StatefulWidget {
     required this.onTotalChanged,
     required this.onListProductChanged,
     required this.product,
+    required this.onDelete,
   });
 
   final Function(int) onTotalChanged;
   final Function(Function(List<String>) updateFunction) onListProductChanged;
   final Product product;
+  final Future<void> Function() onDelete; // Change to Future<void>
 
   @override
   State<CartItem> createState() => _CartItemState();
@@ -40,6 +42,39 @@ class _CartItemState extends State<CartItem> {
         }
       }
     });
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final bool? confirmed = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirm Delete'),
+        content: Text(
+            'Are you sure you want to remove ${widget.product.name} from the cart?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (_isChecked) {
+        widget.onTotalChanged(-widget.product.price.toInt() * number);
+        widget.onListProductChanged((prevList) {
+          List<String> updatedList = List.from(prevList);
+          updatedList.remove(widget.product.id);
+          return updatedList;
+        });
+      }
+      await widget.onDelete(); // Await the async delete
+    }
   }
 
   @override
@@ -71,8 +106,6 @@ class _CartItemState extends State<CartItem> {
             onChanged: (value) {
               setState(() {
                 _isChecked = value!;
-
-                // Cập nhật tổng tiền
                 widget.onTotalChanged(_isChecked
                     ? widget.product.price.toInt() * number
                     : -widget.product.price.toInt() * number);
@@ -91,8 +124,6 @@ class _CartItemState extends State<CartItem> {
               });
             },
           ),
-
-          // Product Image
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.network(
@@ -100,10 +131,9 @@ class _CartItemState extends State<CartItem> {
               width: 80,
               height: 80,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Icon(Icons.error),
             ),
           ),
-
-          // Product Information
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -149,8 +179,6 @@ class _CartItemState extends State<CartItem> {
               ),
             ),
           ),
-
-          // Delete Button
           Container(
             decoration: BoxDecoration(
               color: Colors.black,
@@ -158,9 +186,7 @@ class _CartItemState extends State<CartItem> {
             ),
             child: IconButton(
               icon: Icon(Icons.delete, color: Colors.white),
-              onPressed: () {
-                // Handle delete action
-              },
+              onPressed: () => _confirmDelete(context),
             ),
           ),
         ],

@@ -19,15 +19,20 @@ class _HomeState extends State<Home> {
   final TextEditingController searchController = TextEditingController();
   final ProductManager productManager = ProductManager();
   final CartManager cartManager = CartManager();
-  late AuthService authService;
-  late User user;
+  AuthService? authService; // Remove 'late', make nullable
+  User? user; // Remove 'late', make nullable
   int numberOfCart = 0;
+  bool _isInitialized = false; // Track initialization state
 
   Future<void> _fetchCartItems(User user) async {
-    await cartManager.fetchCartItemsByid(user);
-    setState(() {
-      numberOfCart = cartManager.cart.productId.length;
-    });
+    try {
+      await cartManager.fetchCartItemsByid(user);
+      setState(() {
+        numberOfCart = cartManager.cart.productId.length;
+      });
+    } catch (e) {
+      print('Failed to fetch cart items: $e');
+    }
   }
 
   @override
@@ -35,9 +40,16 @@ class _HomeState extends State<Home> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       authService = Provider.of<AuthService>(context, listen: false);
-      user = authService.currentUser!;
-      _fetchCartItems(user);
-      productManager.fetchProducts();
+      if (authService!.currentUser == null) {
+        print('No user logged in');
+      } else {
+        user = authService!.currentUser!;
+        _fetchCartItems(user!);
+        productManager.fetchProducts();
+      }
+      setState(() {
+        _isInitialized = true; // Mark as initialized
+      });
     });
   }
 
@@ -48,6 +60,12 @@ class _HomeState extends State<Home> {
     super.dispose();
   }
 
+  void _refreshCart() {
+    if (user != null) {
+      _fetchCartItems(user!);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,6 +74,7 @@ class _HomeState extends State<Home> {
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
+              scrolledUnderElevation: 0,
               backgroundColor: Colors.white,
               leading: Padding(
                 padding: const EdgeInsets.only(left: 20),
@@ -84,11 +103,16 @@ class _HomeState extends State<Home> {
               ),
               actions: [
                 Container(
-                  child: CartIcon(
-                    numberOfCart: numberOfCart,
-                    cart: cartManager.cart,
-                  ),
-                  margin: EdgeInsets.only(right: 10),
+                  margin: const EdgeInsets.only(right: 10),
+                  child: !_isInitialized || authService?.currentUser == null
+                      ? const Icon(Icons.shopping_cart)
+                      : CartIcon(
+                          numberOfCart: numberOfCart,
+                          cart: cartManager.cart,
+                          user:
+                              user!, // Safe to use ! because we check null above
+                          onRefresh: _refreshCart,
+                        ),
                 ),
               ],
             ),
@@ -97,11 +121,19 @@ class _HomeState extends State<Home> {
         body: StreamBuilder<List<Product>>(
           stream: productManager.productsStream,
           builder: (context, snapshot) {
+            if (!_isInitialized) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  backgroundColor: Colors.black,
+                ),
+              );
+            }
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                  child: CircularProgressIndicator(
-                backgroundColor: Colors.black,
-              ));
+                child: CircularProgressIndicator(
+                  backgroundColor: Colors.black,
+                ),
+              );
             } else if (snapshot.hasError) {
               return Center(child: Text('Error: ${snapshot.error}'));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -116,7 +148,9 @@ class _HomeState extends State<Home> {
                       child: Text(
                         'List Product',
                         style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -175,10 +209,7 @@ class _HomeState extends State<Home> {
           decoration: const InputDecoration(
             border: InputBorder.none,
             suffixIcon: Padding(
-              padding: EdgeInsets.only(
-                left: 60,
-                right: 15,
-              ),
+              padding: EdgeInsets.only(left: 60, right: 15),
               child: Icon(Icons.search_outlined),
             ),
             hintText: 'Search',
