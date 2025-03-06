@@ -13,6 +13,56 @@ class CartManager {
     created: DateTime.now(),
     updated: DateTime.now(),
   );
+
+  Future<void> createNewCart(String userEmail) async {
+    try {
+      // Lấy thông tin user từ email
+      final userResponse = await cartDataBase.pb
+          .collection('users')
+          .getList(filter: 'email="$userEmail"');
+
+      if (userResponse.items.isEmpty) {
+        throw Exception('User not found');
+      }
+
+      final userId = userResponse.items.first.id;
+
+      // Kiểm tra xem user đã có cart chưa
+      final existingCart = await cartDataBase.pb
+          .collection('cart')
+          .getList(filter: 'user_id="$userId"');
+
+      if (existingCart.items.isNotEmpty) {
+        cart = Cart.fromJson(existingCart.items.first.toJson());
+        return;
+      }
+
+      // Tạo giỏ hàng mới trong database
+      final response = await cartDataBase.pb.collection('cart').create(
+        body: {
+          'user_id': userId,
+          'product_id': [],
+          'created': DateTime.now().toIso8601String(),
+          'updated': DateTime.now().toIso8601String(),
+        },
+      );
+
+      // Cập nhật object cart local
+      cart = Cart(
+        collectionId: response.collectionId,
+        collectionName: response.collectionName,
+        id: response.id,
+        userId: userId,
+        productId: [],
+        created: DateTime.parse(response.created),
+        updated: DateTime.parse(response.updated),
+      );
+    } catch (e) {
+      print('Error creating new cart: $e');
+      throw e;
+    }
+  }
+
   Future<void> fetchCartItemsByid(User user) async {
     try {
       final response = await cartDataBase.pb.collection('cart').getList(
@@ -26,7 +76,6 @@ class CartManager {
 
   Future<void> removeProductFromCart(String productId) async {
     try {
-      // Fetch current cart data
       final currentCart =
           await cartDataBase.pb.collection('cart').getOne(cart.id);
       List<String> updatedProductIds =
@@ -34,10 +83,8 @@ class CartManager {
               .map((id) => id.toString())
               .toList();
 
-      // Remove the product ID
       updatedProductIds.remove(productId);
 
-      // Update the cart in the database
       await cartDataBase.pb.collection('cart').update(
         cart.id,
         body: {
@@ -46,14 +93,13 @@ class CartManager {
         },
       );
 
-      // Update local cart object
       cart = cart.copyWith(
         productId: updatedProductIds,
         updated: DateTime.now(),
       );
     } catch (e) {
       print('Error removing product from cart: $e');
-      throw e; // Re-throw to handle in UI if needed
+      throw e;
     }
   }
 }

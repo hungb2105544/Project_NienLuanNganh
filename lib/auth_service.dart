@@ -45,7 +45,6 @@ class AuthService extends ChangeNotifier {
     try {
       final authData =
           await _pb.collection('users').authWithPassword(email, password);
-      // Kiểm tra token và record
       if (authData.token == null) {
         throw Exception("Auth token is null!");
       }
@@ -54,16 +53,12 @@ class AuthService extends ChangeNotifier {
         throw Exception("Auth record (user data) is null!");
       }
 
-      // Lưu token và user vào authStore
       _pb.authStore.save(authData.token, authData.record);
-      print(
-          "AuthStore after login: ${_pb.authStore.model}"); // Kiểm tra model sau khi lưu
+      print("AuthStore after login: ${_pb.authStore.model}");
 
-      // Lưu token vào Secure Storage
       await _storage.write(key: 'auth_token', value: authData.token);
       _isLoggedIn = true;
 
-      // Tải thông tin người dùng sau khi đăng nhập
       await loadUserInfo();
 
       notifyListeners();
@@ -80,12 +75,19 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> register(String email, String password) async {
+  Future<void> register(
+      String email, String password, String passwordConfirm) async {
     try {
-      await _pb
-          .collection('users')
-          .create(body: {'email': email, 'password': password});
+      final body = {
+        'email': email,
+        'password': password,
+        'passwordConfirm': passwordConfirm,
+        'emailVisibility': true,
+      };
+      print('Register request body: $body'); // Debug: Log the request body
+      await _pb.collection('users').create(body: body);
     } catch (e) {
+      print('Register error: $e'); // Debug: Log the full error
       throw Exception('Register failed: $e');
     }
   }
@@ -151,37 +153,3 @@ class AuthService extends ChangeNotifier {
     }
   }
 }
-
-  // Future<String?> uploadImage(File imageFile, String userId) async {
-  //   try {
-  //     var url = Uri.parse(
-  //         'http://10.0.2.2:8090//api/collections/users/records/$userId');
-
-  //     var request = http.MultipartRequest('PATCH', url)
-  //       ..headers['Authorization'] =
-  //           'Bearer YOUR_AUTH_TOKEN' // Thay bằng token hợp lệ
-  //       ..headers['Content-Type'] = 'multipart/form-data'
-  //       ..files.add(
-  //         await http.MultipartFile.fromPath(
-  //           'avatar', // Tên field của file trong PocketBase
-  //           imageFile.path,
-  //           contentType: MediaType('image', 'jpeg'),
-  //         ),
-  //       );
-
-  //     var client = http.Client();
-  //     var streamedResponse = await client.send(request);
-  //     var response = await http.Response.fromStream(streamedResponse);
-
-  //     client.close();
-
-  //     if (response.statusCode == 200) {
-  //       var jsonResponse = jsonDecode(response.body);
-  //       return jsonResponse['avatar']; // Trả về tên file avatar mới
-  //     } else {
-  //       throw Exception('Failed to upload image: ${response.body}');
-  //     }
-  //   } catch (e) {
-  //     throw Exception('Error uploading image: $e');
-  //   }
-  // }
