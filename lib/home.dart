@@ -19,10 +19,10 @@ class _HomeState extends State<Home> {
   final TextEditingController searchController = TextEditingController();
   final ProductManager productManager = ProductManager();
   final CartManager cartManager = CartManager();
-  AuthService? authService; // Remove 'late', make nullable
-  User? user; // Remove 'late', make nullable
+  AuthService? authService;
+  User? user;
   int numberOfCart = 0;
-  bool _isInitialized = false; // Track initialization state
+  bool _isInitialized = false;
 
   Future<void> _fetchCartItems(User user) async {
     try {
@@ -47,8 +47,9 @@ class _HomeState extends State<Home> {
         _fetchCartItems(user!);
         productManager.fetchProducts();
       }
+      productManager.fetchProducts();
       setState(() {
-        _isInitialized = true; // Mark as initialized
+        _isInitialized = true;
       });
     });
   }
@@ -105,12 +106,40 @@ class _HomeState extends State<Home> {
                 Container(
                   margin: const EdgeInsets.only(right: 10),
                   child: !_isInitialized || authService?.currentUser == null
-                      ? const Icon(Icons.shopping_cart)
+                      ? GestureDetector(
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.check_circle,
+                                        color: Colors.white, size: 24),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      'Please log in to view cart',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: Colors.black,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 6,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          child: const Icon(Icons.shopping_cart))
                       : CartIcon(
                           numberOfCart: numberOfCart,
                           cart: cartManager.cart,
-                          user:
-                              user!, // Safe to use ! because we check null above
+                          user: user!,
                           onRefresh: _refreshCart,
                         ),
                 ),
@@ -216,6 +245,9 @@ class _HomeState extends State<Home> {
             alignLabelWithHint: true,
             contentPadding: EdgeInsets.only(left: 20),
           ),
+          onChanged: (query) {
+            productManager.searchProducts(query);
+          },
         ),
       ),
     );

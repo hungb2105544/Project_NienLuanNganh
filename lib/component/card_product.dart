@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:project/card_view.dart';
 import 'package:project/component/love_button.dart';
 import 'package:project/model/product/product.dart';
@@ -81,7 +82,8 @@ class _CardProductCustomState extends State<CardProductCustom> {
                     ),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 10),
-                      child: Text('${widget.product.price}' + ' VND'),
+                      child: Text(
+                          '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(widget.product.price)}'),
                     ),
                   )),
                 ],

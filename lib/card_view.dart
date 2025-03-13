@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:project/auth_service.dart';
 import 'package:project/home_screen.dart';
 import 'package:project/model/cart/cart.dart';
@@ -16,14 +17,12 @@ class CardView extends StatefulWidget {
 }
 
 class _CardViewState extends State<CardView> {
-  String? selectedSize; // Lưu kích cỡ được chọn
-  int quantity = 1; // Lưu số lượng sản phẩm
-  bool isLoading = false; // Trạng thái loading khi thêm vào giỏ hàng
+  String? selectedSize;
+  int quantity = 1;
+  bool isLoading = false;
 
-  // Danh sách các kích cỡ có sẵn
   final List<String> availableSizes = ['S', 'M', 'L', 'XL'];
 
-  // Hàm thêm sản phẩm vào giỏ hàng
   Future<void> addToCart(String idProduct) async {
     setState(() {
       isLoading = true; // Bắt đầu loading
@@ -35,19 +34,16 @@ class _CardViewState extends State<CardView> {
       final user = authService.currentUser;
       final DataBase dataBase = DataBase();
 
-      // Lấy giỏ hàng hiện tại của người dùng
       final record = await dataBase.pb.collection("cart").getFullList(
             filter: 'user_id = "${user!.id}"',
           );
       final Cart cart = Cart.fromJson(record.first.toJson());
 
-      // Thêm sản phẩm vào giỏ hàng
       cart.productId.add(idProduct);
       await dataBase.pb.collection("cart").update(cart.id, body: {
         "product_id": cart.productId,
       });
 
-      // Hiển thị thông báo thành công
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -74,14 +70,12 @@ class _CardViewState extends State<CardView> {
         ),
       );
 
-      // Chuyển về màn hình HomeScreen và reload
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => HomeScreen(key: UniqueKey())),
         (route) => false,
       );
     } catch (e) {
-      // Hiển thị thông báo lỗi nếu có lỗi xảy ra
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -154,7 +148,7 @@ class _CardViewState extends State<CardView> {
 
               // Hiển thị giá sản phẩm
               Text(
-                '${widget.product.price} VND',
+                '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(widget.product.price)}',
                 style: const TextStyle(
                   fontSize: 20,
                   color: Colors.green,

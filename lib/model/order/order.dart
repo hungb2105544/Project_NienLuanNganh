@@ -69,4 +69,34 @@ class Order {
   String toString() {
     return 'Order{collectionId: $collectionId, collectionName: $collectionName, id: $id, userid: $userid, orderCode: $orderCode, orderDate: $orderDate, totalNumber: $totalNumber, status: $status, paymentMethod: $paymentMethod, addressId: $addressId, created: $created, updated: $updated}';
   }
+
+  Order copyWith({
+    String? collectionId,
+    String? collectionName,
+    String? id,
+    String? userid,
+    String? orderCode,
+    DateTime? orderDate,
+    int? totalNumber,
+    String? status,
+    String? paymentMethod,
+    String? addressId,
+    DateTime? created,
+    DateTime? updated,
+  }) {
+    return Order(
+      collectionId: collectionId ?? this.collectionId,
+      collectionName: collectionName ?? this.collectionName,
+      id: id ?? this.id,
+      userid: userid ?? this.userid,
+      orderCode: orderCode ?? this.orderCode,
+      orderDate: orderDate ?? this.orderDate,
+      totalNumber: totalNumber ?? this.totalNumber,
+      status: status ?? this.status,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      addressId: addressId ?? this.addressId,
+      created: created ?? this.created,
+      updated: updated ?? this.updated,
+    );
+  }
 }

@@ -1,22 +1,399 @@
+// import 'package:flutter/material.dart';
+// import 'package:intl/intl.dart';
+// import 'package:project/model/address/address.dart';
+// import 'package:project/model/address/address_manager.dart';
+// import 'package:project/model/order/orders_manager.dart';
+// import 'package:provider/provider.dart';
+// import 'package:project/auth_service.dart';
+// import 'package:project/model/order/order.dart';
+// import 'package:project/model/order/order_item_manager.dart';
+// import 'package:project/model/product/product.dart';
+// import 'package:project/model/product/product_manager.dart';
+
+// class OrderInformationPage extends StatefulWidget {
+//   const OrderInformationPage({super.key, required this.order});
+//   final Order order;
+
+//   @override
+//   State<OrderInformationPage> createState() => _OrderInformationPageState();
+// }
+
+// class _OrderInformationPageState extends State<OrderInformationPage> {
+//   late Order _currentOrder;
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _currentOrder = widget.order;
+//   }
+
+//   Future<List<Product>> getProductsOfOrder(List<String> idProducts) async {
+//     ProductManager productManager = ProductManager();
+//     List<Product> products = [];
+//     for (var id in idProducts) {
+//       final product = await productManager.getProductById(id);
+//       products.add(product);
+//     }
+//     return products;
+//   }
+
+//   Future<List<Product>> getProductInOrder(Order order) async {
+//     OrderItemManager orderItemManager = OrderItemManager();
+//     final orderItem = await orderItemManager.getOneOrderItem(order.id);
+//     if (orderItem == null) return [];
+//     return await getProductsOfOrder(orderItem.productId ?? []);
+//   }
+
+//   Future<Address?> getAddressById(String id) async {
+//     AddressManager addressManager = AddressManager();
+//     return await addressManager.getOneAddress(id);
+//   }
+
+//   Future<void> confirmOrder() async {
+//     OrderManager orderManager = OrderManager();
+//     final updatedOrder = widget.order.copyWith(status: 'shipped');
+
+//     try {
+//       await orderManager.updateOrder(widget.order.id, updatedOrder);
+//       setState(() {
+//         _currentOrder = updatedOrder;
+//       });
+//     } catch (e) {
+//       print('Error confirming order: $e');
+//     }
+//   }
+
+//   Future<double> calculateTotal(List<Product> products) async {
+//     double total = 0;
+//     for (var product in products) {
+//       total += product.price;
+//     }
+//     return total;
+//   }
+
+//   String formatDateTime(DateTime dateTime) {
+//     return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final authService = Provider.of<AuthService>(context);
+//     final user = authService.currentUser;
+
+//     return Scaffold(
+//       appBar: AppBar(
+//         title: const Text('Order Information'),
+//         centerTitle: true,
+//       ),
+//       body: Padding(
+//         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+//         child: FutureBuilder<List<Product>>(
+//           future: getProductInOrder(widget.order),
+//           builder: (context, snapshot) {
+//             if (snapshot.connectionState == ConnectionState.waiting) {
+//               return const Center(child: CircularProgressIndicator());
+//             } else if (snapshot.hasError) {
+//               return Center(child: Text('Error: ${snapshot.error}'));
+//             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+//               return const Center(child: Text('No products found.'));
+//             } else {
+//               final products = snapshot.data!;
+//               return FutureBuilder<double>(
+//                 future: calculateTotal(products),
+//                 builder: (context, totalSnapshot) {
+//                   return FutureBuilder<Address?>(
+//                     future: getAddressById(widget.order.addressId),
+//                     builder: (context, addressSnapshot) {
+//                       final address = addressSnapshot.data;
+//                       return Column(
+//                         crossAxisAlignment: CrossAxisAlignment.start,
+//                         children: [
+//                           _buildUserInfo(user),
+//                           const SizedBox(height: 16),
+//                           const Text(
+//                             'Address',
+//                             style: TextStyle(
+//                                 fontSize: 20, fontWeight: FontWeight.bold),
+//                           ),
+//                           const SizedBox(height: 16),
+//                           if (address != null)
+//                             Container(
+//                               width: double.infinity,
+//                               padding: const EdgeInsets.all(12),
+//                               decoration: BoxDecoration(
+//                                 color: Colors.white,
+//                                 borderRadius: BorderRadius.circular(12),
+//                                 boxShadow: [
+//                                   BoxShadow(
+//                                     color: Colors.black12,
+//                                     blurRadius: 6,
+//                                     offset: const Offset(0, 2),
+//                                   ),
+//                                 ],
+//                               ),
+//                               child: Column(
+//                                 crossAxisAlignment: CrossAxisAlignment.start,
+//                                 children: [
+//                                   Text(
+//                                     'Địa chỉ: ${address.street}, ${address.city}, ${address.state}',
+//                                     style: TextStyle(
+//                                         fontSize: 16,
+//                                         fontWeight: FontWeight.w500),
+//                                   ),
+//                                   const SizedBox(height: 8),
+//                                   Text(
+//                                     'Thời gian: ${formatDateTime(widget.order.created)}',
+//                                     style: TextStyle(
+//                                         fontSize: 16,
+//                                         fontWeight: FontWeight.w500),
+//                                   ),
+//                                 ],
+//                               ),
+//                             ),
+//                           const SizedBox(height: 16),
+//                           const Text(
+//                             'Information',
+//                             style: TextStyle(
+//                                 fontSize: 20, fontWeight: FontWeight.bold),
+//                           ),
+//                           const SizedBox(height: 8),
+//                           if (address != null)
+//                             Container(
+//                               width: double.infinity,
+//                               padding: const EdgeInsets.all(12),
+//                               decoration: BoxDecoration(
+//                                 color: Colors.white,
+//                                 borderRadius: BorderRadius.circular(12),
+//                                 boxShadow: [
+//                                   BoxShadow(
+//                                     color: Colors.black12,
+//                                     blurRadius: 6,
+//                                     offset: const Offset(0, 2),
+//                                   ),
+//                                 ],
+//                               ),
+//                               child: Column(
+//                                 crossAxisAlignment: CrossAxisAlignment.start,
+//                                 children: [
+//                                   Text(
+//                                     'Mã đơn hàng: ${widget.order.orderCode}',
+//                                     style: TextStyle(
+//                                         fontSize: 16,
+//                                         fontWeight: FontWeight.w500),
+//                                   ),
+//                                   const SizedBox(height: 8),
+//                                   Text(
+//                                     'Phương thức thanh toán : ${widget.order.paymentMethod}',
+//                                     style: TextStyle(
+//                                         fontSize: 16,
+//                                         fontWeight: FontWeight.w500),
+//                                   ),
+//                                 ],
+//                               ),
+//                             ),
+//                           const SizedBox(height: 16),
+//                           const Text(
+//                             'List Products',
+//                             style: TextStyle(
+//                                 fontSize: 20, fontWeight: FontWeight.bold),
+//                           ),
+//                           const SizedBox(height: 8),
+//                           Expanded(
+//                             child: ListView.builder(
+//                               physics: const BouncingScrollPhysics(),
+//                               itemCount: products.length,
+//                               itemBuilder: (context, index) {
+//                                 final product = products[index];
+//                                 return ProductItemInOrder(
+//                                   product: product,
+//                                   quantity: 1,
+//                                   onRemove: () {
+//                                     print('Product removed: ${product.id}');
+//                                   },
+//                                 );
+//                               },
+//                             ),
+//                           ),
+//                           const SizedBox(height: 8),
+//                           _buildTotalAndButtons(totalSnapshot.data ?? 0.0),
+//                         ],
+//                       );
+//                     },
+//                   );
+//                 },
+//               );
+//             }
+//           },
+//         ),
+//       ),
+//     );
+//   }
+
+//   Widget _buildUserInfo(user) {
+//     return Container(
+//       padding: const EdgeInsets.all(10),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(12),
+//         boxShadow: [
+//           BoxShadow(
+//             color: Colors.black12,
+//             blurRadius: 6,
+//             offset: const Offset(0, 2),
+//           ),
+//         ],
+//       ),
+//       child: Row(
+//         children: [
+//           const CircleAvatar(
+//             radius: 30,
+//             backgroundColor: Colors.black,
+//             child: Icon(Icons.person, size: 30, color: Colors.white),
+//           ),
+//           const SizedBox(width: 12),
+//           Expanded(
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text(user?.fullname ?? 'Unknown',
+//                     style: const TextStyle(
+//                         fontSize: 18, fontWeight: FontWeight.bold)),
+//                 const SizedBox(height: 4),
+//                 Text(user?.phone ?? 'Unknown',
+//                     style:
+//                         const TextStyle(fontSize: 16, color: Colors.black54)),
+//                 const SizedBox(height: 4),
+//                 Text('Order Status: ${widget.order.status}',
+//                     style: const TextStyle(
+//                         fontSize: 14, fontWeight: FontWeight.w500)),
+//               ],
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
+//   Widget _buildTotalAndButtons(double total) {
+//     return Container(
+//       padding: const EdgeInsets.all(12),
+//       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(12),
+//         boxShadow: [
+//           BoxShadow(
+//             color: Colors.black12,
+//             blurRadius: 8,
+//             offset: Offset(0, 4),
+//           ),
+//         ],
+//       ),
+//       child: Row(
+//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//         children: [
+//           AnimatedSwitcher(
+//             duration: const Duration(milliseconds: 300),
+//             child: Text(
+//               "Tổng: ₫${total.toStringAsFixed(0)}",
+//               key: ValueKey(total),
+//               style: const TextStyle(
+//                 fontSize: 18,
+//                 fontWeight: FontWeight.bold,
+//                 color: Color.fromARGB(255, 0, 0, 0),
+//               ),
+//             ),
+//           ),
+//           if (widget.order.status == "processing")
+//             ElevatedButton.icon(
+//               onPressed: () => confirmOrder(),
+//               icon:
+//                   const Icon(Icons.check_circle, size: 22, color: Colors.white),
+//               label: const Text('Đã nhận hàng'),
+//               style: ElevatedButton.styleFrom(
+//                 backgroundColor: Colors.green.shade600,
+//                 foregroundColor: Colors.white,
+//                 padding:
+//                     const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+//                 shape: RoundedRectangleBorder(
+//                   borderRadius: BorderRadius.circular(12),
+//                 ),
+//                 elevation: 4,
+//               ),
+//             ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+// class ProductItemInOrder extends StatelessWidget {
+//   final int quantity;
+//   final Product product;
+//   final VoidCallback onRemove;
+
+//   const ProductItemInOrder({
+//     super.key,
+//     required this.product,
+//     required this.quantity,
+//     required this.onRemove,
+//   });
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Card(
+//       elevation: 4,
+//       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+//       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+//       child: ListTile(
+//         leading: Hero(
+//           tag: product.id,
+//           child: ClipRRect(
+//             borderRadius: BorderRadius.circular(10),
+//             child: Image.network(
+//               "http://10.0.2.2:8090/api/files/products/${product.id}/${product.image}",
+//               width: 60,
+//               height: 60,
+//               fit: BoxFit.cover,
+//             ),
+//           ),
+//         ),
+//         title: Text(product.name,
+//             style: const TextStyle(fontWeight: FontWeight.w600)),
+//         subtitle:
+//             Text('₫${product.price.toStringAsFixed(0)} | Số lượng: $quantity'),
+//       ),
+//     );
+//   }
+// }
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:project/model/address/address.dart';
+import 'package:project/model/address/address_manager.dart';
+import 'package:project/model/order/orders_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:project/auth_service.dart';
-import 'package:project/model/database/pocketbase.dart';
 import 'package:project/model/order/order.dart';
 import 'package:project/model/order/order_item_manager.dart';
 import 'package:project/model/product/product.dart';
 import 'package:project/model/product/product_manager.dart';
-import 'package:provider/provider.dart';
 
 class OrderInformationPage extends StatefulWidget {
   const OrderInformationPage({super.key, required this.order});
   final Order order;
+
   @override
   State<OrderInformationPage> createState() => _OrderInformationPageState();
 }
 
 class _OrderInformationPageState extends State<OrderInformationPage> {
-  final List<Product> _products = [];
-  double _total = 0.0;
+  late Order _currentOrder;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentOrder = widget.order;
+  }
 
   Future<List<Product>> getProductsOfOrder(List<String> idProducts) async {
     ProductManager productManager = ProductManager();
@@ -31,68 +408,44 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
   Future<List<Product>> getProductInOrder(Order order) async {
     OrderItemManager orderItemManager = OrderItemManager();
     final orderItem = await orderItemManager.getOneOrderItem(order.id);
-    if (orderItem == null) {
-      print('Order Item not found.');
-      return [];
-    }
-    List<Product> products =
-        await getProductsOfOrder(orderItem.productId ?? []);
-    return products;
+    if (orderItem == null) return [];
+    return await getProductsOfOrder(orderItem.productId ?? []);
   }
 
-  Future<double> calculateTotal(Order order) async {
+  Future<Address?> getAddressById(String id) async {
+    AddressManager addressManager = AddressManager();
+    return await addressManager.getOneAddress(id);
+  }
+
+  Future<void> confirmOrder() async {
+    OrderManager orderManager = OrderManager();
+    final updatedOrder = _currentOrder.copyWith(status: 'shipped');
+
+    try {
+      await orderManager.updateOrder(_currentOrder.id, updatedOrder);
+      setState(() {
+        _currentOrder = updatedOrder;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đơn hàng đã được xác nhận thành công!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi xác nhận đơn hàng: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<double> calculateTotal(List<Product> products) async {
     double total = 0;
-    List<Product> products = await getProductInOrder(order);
     for (var product in products) {
       total += product.price;
     }
     return total;
   }
 
-  void fetchProducts() async {
-    List<Product> products = await getProductInOrder(widget.order);
-    double total = await calculateTotal(widget.order);
-    setState(() {
-      _products.clear();
-      _products.addAll(products);
-      _total = total;
-    });
-  }
-
-  void deleteProduct(Order order, String productId) async {
-    OrderItemManager orderItemManager = OrderItemManager();
-    DataBase dataBase = DataBase();
-    final orderItem = await orderItemManager.getOneOrderItem(order.id);
-    final record = await dataBase.pb.collection('order_item').getList(
-          filter: 'order_id= "${orderItem?.orderId}"',
-        );
-    print("\nOrderitem $record");
-    if (orderItem == null) {
-      print('Order Item not found.');
-      return;
-    }
-    List<String> updatedProductIds = List.from(orderItem.productId);
-    updatedProductIds.remove(productId);
-    print(updatedProductIds);
-    try {
-      final body = <String, dynamic>{
-        "product_id": updatedProductIds,
-      };
-
-      await dataBase.pb
-          .collection('order_item')
-          .update(record.items.first.id, body: body);
-      print('Product removed successfully');
-      fetchProducts(); // Cập nhật lại danh sách sản phẩm và tổng giá trị
-    } catch (e) {
-      print('\nError removing product: $e');
-    }
-  }
-
-  @override
-  void initState() {
-    fetchProducts();
-    super.initState();
+  String formatDateTime(DateTime dateTime) {
+    return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
   }
 
   @override
@@ -102,184 +455,246 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Order Information'),
+        title: const Text('Order Information'),
+        centerTitle: true,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
+      body: FutureBuilder<List<Product>>(
+        future: getProductInOrder(_currentOrder),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No products found.'));
+          } else {
+            final products = snapshot.data!;
+            return FutureBuilder<double>(
+              future: calculateTotal(products),
+              builder: (context, totalSnapshot) {
+                return FutureBuilder<Address?>(
+                  future: getAddressById(_currentOrder.addressId),
+                  builder: (context, addressSnapshot) {
+                    final address = addressSnapshot.data;
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12.0, vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildUserInfo(user),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Address',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 16),
+                          if (address != null)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Địa chỉ: ${address.street}, ${address.city}, ${address.state}',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Thời gian: ${formatDateTime(_currentOrder.created)}',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Information',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          if (address != null)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mã đơn hàng: ${_currentOrder.orderCode}',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Phương thức thanh toán : ${_currentOrder.paymentMethod}',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'List Products',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: products.length,
+                            itemBuilder: (context, index) {
+                              final product = products[index];
+                              return ProductItemInOrder(
+                                product: product,
+                                quantity: 1,
+                                onRemove: () {
+                                  print('Product removed: ${product.id}');
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          _buildTotalAndButtons(totalSnapshot.data ?? 0.0),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildUserInfo(user) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 30,
+            backgroundColor: Colors.black,
+            child: Icon(Icons.person, size: 30, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  margin: EdgeInsets.only(left: 8),
-                  child: Text(
-                    'User information',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 255, 255, 255),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color.fromARGB(255, 0, 0, 0),
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 5,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  padding: EdgeInsets.all(5),
-                  child: Row(
-                    children: [
-                      SizedBox(width: 12),
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
-                        child: Icon(
-                          Icons.person,
-                          size: 30,
-                          color: const Color.fromARGB(255, 255, 255, 255),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user?.fullname ?? 'Unknown',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: const Color.fromARGB(255, 0, 0, 0),
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              user?.phone ?? 'Unknown',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: const Color.fromARGB(255, 0, 0, 0),
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Order Status: ${widget.order.status}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: const Color.fromARGB(255, 0, 0, 0),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.access_time,
-                        color: const Color.fromARGB(179, 0, 0, 0),
-                      ),
-                      SizedBox(width: 12),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 16),
-                Container(
-                  margin: EdgeInsets.only(left: 8),
-                  child: Text(
-                    'List Products',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                FutureBuilder<List<Product>>(
-                  future: getProductInOrder(widget.order),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}'));
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return Center(child: Text('No products found.'));
-                    } else {
-                      return Column(
-                        children: snapshot.data!.map((product) {
-                          return ProductItemInOrder(
-                            product: product,
-                            quantity: 1,
-                            onRemove: () {
-                              deleteProduct(
-                                  widget.order, product.id.toString());
-                            },
-                          );
-                        }).toList(),
-                      );
-                    }
-                  },
-                ),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(12),
-                  child: FutureBuilder<double>(
-                    future: calculateTotal(widget.order),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Center(child: Text('Error: ${snapshot.error}'));
-                      } else {
-                        return Text("Total: ${snapshot.data}");
-                      }
-                    },
-                  ),
-                ),
-                Container(
-                  width: double.infinity,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            print('Đã xác nhận đơn hàng');
-                          },
-                          child: Text('Xác nhận đơn hàng'),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            print('Đã hủy đơn hàng');
-                          },
-                          child: Text('Hủy đơn hàng'),
-                          style: ButtonStyle(
-                            backgroundColor:
-                                MaterialStateProperty.all(Colors.redAccent),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+                Text(user?.fullname ?? 'Unknown',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(user?.phone ?? 'Unknown',
+                    style:
+                        const TextStyle(fontSize: 16, color: Colors.black54)),
+                const SizedBox(height: 4),
+                Text('Order Status: ${_currentOrder.status}',
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTotalAndButtons(double total) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Text(
+              "Tổng: ₫${total.toStringAsFixed(0)}",
+              key: ValueKey(total),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color.fromARGB(255, 0, 0, 0),
+              ),
+            ),
+          ),
+          if (_currentOrder.status == "processing")
+            ElevatedButton.icon(
+              onPressed: confirmOrder,
+              icon:
+                  const Icon(Icons.check_circle, size: 22, color: Colors.white),
+              label: const Text('Đã nhận hàng'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -299,79 +714,27 @@ class ProductItemInOrder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-      padding: EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        border:
-            Border.all(color: const Color.fromARGB(255, 0, 0, 0)!, width: 2),
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Hero(
+          tag: product.id,
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.network(
               "http://10.0.2.2:8090/api/files/products/${product.id}/${product.image}",
-              width: 70,
-              height: 70,
+              width: 60,
+              height: 60,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 70,
-                  height: 70,
-                  color: Colors.grey[300],
-                  child: Icon(Icons.image_not_supported, color: Colors.grey),
-                );
-              },
             ),
           ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  product.name,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 4),
-                Text(
-                  '₫${product.price.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.redAccent,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Số lượng: $quantity',
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: onRemove,
-            icon: Icon(Icons.delete, color: Colors.redAccent),
-            tooltip: 'Xóa sản phẩm',
-          ),
-        ],
+        ),
+        title: Text(product.name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle:
+            Text('₫${product.price.toStringAsFixed(0)} | Số lượng: $quantity'),
       ),
     );
   }
