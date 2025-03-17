@@ -23,14 +23,11 @@ class AuthService extends ChangeNotifier {
     if (token != null) {
       _pb.authStore.save(token, null);
       try {
-        // Làm mới phiên đăng nhập
         await _pb.collection('users').authRefresh();
         _isLoggedIn = true;
 
-        // Tải thông tin người dùng
         await loadUserInfo();
       } catch (e) {
-        // Xóa token nếu phiên không hợp lệ
         await _storage.delete(key: 'auth_token');
         _pb.authStore.clear();
         _isLoggedIn = false;
@@ -133,16 +130,13 @@ class AuthService extends ChangeNotifier {
 
       final userId = userModel.id;
 
-      // Cập nhật thông tin user trên PocketBase
       final updatedUser =
           await _pb.collection('users').update(userId, body: user.toJson());
 
-      // Kiểm tra dữ liệu trả về
       if (updatedUser == null) {
         throw Exception("Failed to update user: No response from server");
       }
 
-      // Cập nhật dữ liệu mới từ server
       _currentUser = User.fromJson(updatedUser.toJson());
       notifyListeners();
     } on ClientException catch (e) {

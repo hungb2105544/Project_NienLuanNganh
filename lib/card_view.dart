@@ -25,7 +25,7 @@ class _CardViewState extends State<CardView> {
 
   Future<void> addToCart(String idProduct) async {
     setState(() {
-      isLoading = true; // Bắt đầu loading
+      isLoading = true;
     });
 
     try {

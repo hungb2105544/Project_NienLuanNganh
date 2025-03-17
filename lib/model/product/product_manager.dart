@@ -9,7 +9,7 @@ class ProductManager {
 
   Stream<List<Product>> get productsStream => _productsController.stream;
 
-  List<Product> _allProducts = []; // Lưu trữ tất cả sản phẩm để tìm kiếm
+  List<Product> _allProducts = [];
 
   Future<void> fetchProducts() async {
     try {
@@ -22,6 +22,27 @@ class ProductManager {
         _allProducts =
             response.map((item) => Product.fromJson(item.toJson())).toList();
         _productsController.add(_allProducts);
+      }
+    } catch (e) {
+      print('Error fetching products: $e');
+      _productsController.addError(e);
+    }
+  }
+
+  Future<void> getProductsWithCategory(String category) async {
+    try {
+      final response =
+          await productDataBase.pb.collection('products').getFullList(
+                expand: "category_id",
+                filter: "category_id.name = '$category'",
+              );
+      if (response.isEmpty) {
+        print('No products found.');
+        _productsController.add([]);
+      } else {
+        final products =
+            response.map((item) => Product.fromJson(item.toJson())).toList();
+        _productsController.add(products);
       }
     } catch (e) {
       print('Error fetching products: $e');

@@ -562,7 +562,7 @@ class _OrderTempState extends State<OrderTemp> {
       "status": "pending",
       "payment_method": paymentMethod,
       "address_id": selectedAddress!.id,
-      "total_price": totalPrice,
+      "total_number": totalPrice,
     };
 
     try {
