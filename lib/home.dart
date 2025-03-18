@@ -3,6 +3,7 @@ import 'package:project/auth_service.dart';
 import 'package:project/component/card_product.dart';
 import 'package:project/component/cart.dart';
 import 'package:project/model/cart/cart_manager.dart';
+import 'package:project/model/favorite_product/favorite_product_manager.dart';
 import 'package:project/model/product/product.dart';
 import 'package:project/model/product/product_manager.dart';
 import 'package:project/model/user/user.dart';
@@ -40,11 +41,14 @@ class _HomeState extends State<Home> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       authService = Provider.of<AuthService>(context, listen: false);
+      final favoriteManager =
+          Provider.of<FavoriteProductManager>(context, listen: false);
       if (authService!.currentUser == null) {
         print('No user logged in');
       } else {
         user = authService!.currentUser!;
         _fetchCartItems(user!);
+        favoriteManager.fetchFavoriteProducts(user!);
         productManager.fetchProducts();
       }
       productManager.fetchProducts();

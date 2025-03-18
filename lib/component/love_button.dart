@@ -5,12 +5,12 @@ import 'package:project/model/user/user.dart';
 
 class LoveButton extends StatefulWidget {
   final String productId;
-  final User? user; // Đổi thành User? để hỗ trợ null
+  final User? user;
 
   const LoveButton({
     super.key,
     required this.productId,
-    this.user, // Không còn required
+    this.user,
   });
 
   @override
@@ -30,52 +30,54 @@ class _LoveButtonState extends State<LoveButton> {
 
   @override
   Widget build(BuildContext context) {
-    final favoriteManager =
-        Provider.of<FavoriteProductManager>(context, listen: false);
+    return Consumer<FavoriteProductManager>(
+      builder: (context, favoriteManager, child) {
+        isLiked = favoriteManager.favoriteProductIds.contains(widget.productId);
 
-    return IconButton(
-      onPressed: widget.user == null
-          ? null // Vô hiệu hóa nút nếu không có user
-          : () async {
-              setState(() {
-                isLiked = !isLiked; // Chuyển đổi trạng thái tạm thời
-              });
-              try {
-                if (isLiked) {
-                  await favoriteManager.addFavoriteProduct(
-                      widget.productId, widget.user!);
-                } else {
-                  await favoriteManager.removeFavoriteProduct(
-                      widget.productId, widget.user!);
-                }
-              } catch (e) {
-                setState(() {
-                  isLiked = !isLiked; // Hoàn tác nếu lỗi
-                });
-                print("Lỗi khi cập nhật yêu thích: $e");
-              }
-            },
-      icon: ClipOval(
-        child: Container(
-          height: 40,
-          width: 40,
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: const Color.fromARGB(124, 187, 187, 187),
+        return IconButton(
+          onPressed: widget.user == null
+              ? null
+              : () async {
+                  setState(() {
+                    isLiked = !isLiked;
+                  });
+                  try {
+                    if (isLiked) {
+                      await favoriteManager.addFavoriteProduct(
+                          widget.productId, widget.user!);
+                    } else {
+                      await favoriteManager.removeFavoriteProduct(
+                          widget.productId, widget.user!);
+                    }
+                  } catch (e) {
+                    setState(() {
+                      isLiked = !isLiked;
+                    });
+                    print("Lỗi khi cập nhật yêu thích: $e");
+                  }
+                },
+          icon: ClipOval(
+            child: Container(
+              height: 40,
+              width: 40,
+              decoration: BoxDecoration(
+                border:
+                    Border.all(color: const Color.fromARGB(124, 187, 187, 187)),
+                borderRadius: const BorderRadius.all(Radius.circular(50)),
+                color: const Color.fromARGB(255, 255, 255, 255),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Image.asset(
+                  isLiked
+                      ? 'assets/images/heart.png'
+                      : 'assets/images/heart_outline.png',
+                ),
+              ),
             ),
-            borderRadius: const BorderRadius.all(Radius.circular(50)),
-            color: const Color.fromARGB(255, 255, 255, 255),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Image.asset(
-              isLiked
-                  ? 'assets/images/heart.png'
-                  : 'assets/images/heart_outline.png',
-            ),
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

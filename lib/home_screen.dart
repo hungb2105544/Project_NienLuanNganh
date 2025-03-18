@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:project/account_page.dart';
+import 'package:project/favorite_screen.dart';
+import 'package:project/favourite_page.dart';
 import 'package:project/home.dart';
 
 enum _SelectedTab { home, favorite, discount, person }
@@ -22,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _pages = <Widget>[
     const Home(),
-    const Home(),
+    const FavoriteProductsScreen(),
     const Home(),
     const AccountPage(),
   ];
@@ -40,12 +42,11 @@ class _HomeScreenState extends State<HomeScreen> {
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _SelectedTab.values.indexOf(_selectedTab),
           onTap: _handleIndexChanged,
-          type: BottomNavigationBarType.fixed, // Hiển thị tất cả item kể cả > 3
-          selectedItemColor: Colors.black, // Màu khi được chọn
-          unselectedItemColor: Colors.grey, // Màu khi không chọn
-          backgroundColor:
-              const Color.fromARGB(240, 255, 255, 255), // Nền trắng mờ
-          elevation: 10, // Độ nâng của thanh
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: Colors.black,
+          unselectedItemColor: Colors.grey,
+          backgroundColor: const Color.fromARGB(240, 255, 255, 255),
+          elevation: 10,
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),

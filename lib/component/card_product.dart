@@ -5,7 +5,6 @@ import 'package:project/card_view.dart';
 import 'package:project/component/love_button.dart';
 import 'package:project/model/product/product.dart';
 import 'package:provider/provider.dart';
-import 'package:project/model/user/user.dart';
 
 class CardProductCustom extends StatefulWidget {
   const CardProductCustom({super.key, required this.product});
@@ -96,16 +95,17 @@ class _CardProductCustomState extends State<CardProductCustom> {
             ),
           ),
           Positioned(
-              height: MediaQuery.of(context).size.height * 0.07,
-              width: MediaQuery.of(context).size.height * 0.07,
-              top: 1,
-              right: 1,
-              child: (user != null)
-                  ? LoveButton(
-                      productId: widget.product.id,
-                      user: user, // Truyền user có thể null
-                    )
-                  : Container()),
+            height: MediaQuery.of(context).size.height * 0.07,
+            width: MediaQuery.of(context).size.height * 0.07,
+            top: 1,
+            right: 1,
+            child: (user != null)
+                ? LoveButton(
+                    productId: widget.product.id,
+                    user: user,
+                  )
+                : Container(),
+          ),
         ],
       ),
     );

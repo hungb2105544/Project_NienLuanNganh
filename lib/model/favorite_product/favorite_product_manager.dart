@@ -1,13 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:project/model/database/pocketbase.dart';
 import 'package:project/model/favorite_product/favorite_product.dart';
+import 'package:project/model/product/product.dart';
 import 'package:project/model/user/user.dart';
 
 class FavoriteProductManager extends ChangeNotifier {
   List<String> _favoriteProductIds = [];
   List<String> get favoriteProductIds => _favoriteProductIds;
+  List<Product> _favoriteProduct = [];
 
+  List<Product> get favoriteProduct => _favoriteProduct;
   final DataBase favoriteProductDataBase = DataBase();
+
+  Future<void> fetchFavoriteProducts(User user) async {
+    try {
+      final existingRecords = await favoriteProductDataBase.pb
+          .collection('favorite_products')
+          .getFullList(filter: "id_users = '${user.id}'");
+
+      if (existingRecords.isNotEmpty) {
+        final record = existingRecords.first;
+        final favoriteProduct = FavoriteProduct.fromJson(record.data);
+        _favoriteProductIds = List<String>.from(favoriteProduct.productIds);
+
+        _favoriteProduct = await Future.wait(
+          _favoriteProductIds.map((productId) async {
+            final productRecord = await favoriteProductDataBase.pb
+                .collection('products')
+                .getOne(productId);
+
+            return Product.fromJson(productRecord.toJson());
+          }),
+        );
+        notifyListeners();
+      } else {
+        _favoriteProductIds = [];
+      }
+      notifyListeners();
+    } catch (e) {
+      print("Lỗi khi tải danh sách yêu thích: $e");
+    }
+  }
 
   Future<void> addFavoriteProduct(String productId, User user) async {
     if (!_favoriteProductIds.contains(productId)) {
@@ -44,6 +77,10 @@ class FavoriteProductManager extends ChangeNotifier {
               'id_products': updatedProductIds,
               'updated': DateTime.now().toIso8601String(),
             });
+            final productRecord = await favoriteProductDataBase.pb
+                .collection('products')
+                .getOne(productId);
+            _favoriteProduct.add(Product.fromJson(productRecord.toJson()));
             _favoriteProductIds.add(productId);
           }
         }
@@ -107,6 +144,9 @@ class FavoriteProductManager extends ChangeNotifier {
               'id_products': updatedProductIds,
               'updated': DateTime.now().toIso8601String(),
             });
+            _favoriteProduct.remove(
+              _favoriteProduct.firstWhere((product) => product.id == productId),
+            );
             _favoriteProductIds.remove(productId);
             notifyListeners();
           }

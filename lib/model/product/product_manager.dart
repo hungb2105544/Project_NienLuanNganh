@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:project/model/database/pocketbase.dart';
 import 'package:project/model/product/product.dart';
 
-class ProductManager {
+class ProductManager extends ChangeNotifier {
   final DataBase productDataBase = DataBase();
   final StreamController<List<Product>> _productsController =
       StreamController<List<Product>>.broadcast();
@@ -11,6 +12,7 @@ class ProductManager {
 
   List<Product> _allProducts = [];
 
+  List get allProducts => _allProducts;
   Future<void> fetchProducts() async {
     try {
       final response =
@@ -23,6 +25,7 @@ class ProductManager {
             response.map((item) => Product.fromJson(item.toJson())).toList();
         _productsController.add(_allProducts);
       }
+      notifyListeners();
     } catch (e) {
       print('Error fetching products: $e');
       _productsController.addError(e);
@@ -37,15 +40,15 @@ class ProductManager {
                 filter: "category_id.name = '$category'",
               );
       if (response.isEmpty) {
-        print('No products found.');
         _productsController.add([]);
       } else {
         final products =
             response.map((item) => Product.fromJson(item.toJson())).toList();
         _productsController.add(products);
       }
+      notifyListeners();
     } catch (e) {
-      print('Error fetching products: $e');
+      print('Error fetching products with category: $e');
       _productsController.addError(e);
     }
   }
@@ -54,7 +57,8 @@ class ProductManager {
     try {
       final response =
           await productDataBase.pb.collection('products').getOne(id);
-      return Product.fromJson(response.toJson());
+      final product = Product.fromJson(response.toJson());
+      return product;
     } catch (e) {
       print('Error fetching product: $e');
       rethrow;
@@ -68,11 +72,16 @@ class ProductManager {
       final filteredProducts = _allProducts.where((product) {
         return product.name.toLowerCase().contains(query.toLowerCase());
       }).toList();
+      print('Filtered products: ${filteredProducts.map((p) => p.id).toList()}');
       _productsController.add(filteredProducts);
     }
+    notifyListeners();
   }
 
+  @override
   void dispose() {
+    print('Disposing ProductManager');
     _productsController.close();
+    super.dispose();
   }
 }

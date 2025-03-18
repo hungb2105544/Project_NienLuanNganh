@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:project/login.dart';
 import 'package:project/model/favorite_product/favorite_product_manager.dart';
+import 'package:project/model/product/product_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:project/auth_service.dart';
 import 'package:project/home_screen.dart';
@@ -17,6 +18,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ProductManager()),
         ChangeNotifierProvider(create: (_) => authService),
         ChangeNotifierProvider(create: (_) => FavoriteProductManager()),
       ],
