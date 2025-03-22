@@ -9,7 +9,7 @@ class CartManager {
     collectionName: '',
     id: '',
     userId: '',
-    productId: [],
+    items: [],
     created: DateTime.now(),
     updated: DateTime.now(),
   );
@@ -38,7 +38,7 @@ class CartManager {
       final response = await cartDataBase.pb.collection('cart').create(
         body: {
           'user_id': userId,
-          'product_id': [],
+          'items': [],
           'created': DateTime.now().toIso8601String(),
           'updated': DateTime.now().toIso8601String(),
         },
@@ -48,52 +48,95 @@ class CartManager {
         collectionName: response.collectionName,
         id: response.id,
         userId: userId,
-        productId: [],
+        items: [],
         created: DateTime.parse(response.created),
         updated: DateTime.parse(response.updated),
       );
+      print('Created new cart: $cart');
     } catch (e) {
       print('Error creating new cart: $e');
       throw e;
     }
   }
 
-  Future<void> fetchCartItemsByid(User user) async {
+  Future<void> fetchCartItemsById(User user) async {
     try {
       final response = await cartDataBase.pb.collection('cart').getList(
             filter: 'user_id="${user.id}"',
           );
-      cart = Cart.fromJson(response.items.first.toJson());
+      if (response.items.isNotEmpty) {
+        cart = Cart.fromJson(response.items.first.toJson());
+        print('Fetched cart: $cart');
+      } else {
+        print('No cart found for user: ${user.id}');
+      }
     } catch (e) {
       print('Error fetching cart items: $e');
     }
   }
 
-  Future<void> removeProductFromCart(String productId) async {
+  Future<void> removeProductFromCart(String productId, String size) async {
     try {
       final currentCart =
           await cartDataBase.pb.collection('cart').getOne(cart.id);
-      List<String> updatedProductIds =
-          List.from(currentCart.data['product_id'] as List<dynamic>)
-              .map((id) => id.toString())
+      List<Map<String, dynamic>> updatedItems =
+          List.from(currentCart.toJson()['items'] as List<dynamic>)
+              .map((item) => Map<String, dynamic>.from(item))
               .toList();
 
-      updatedProductIds.remove(productId);
+      updatedItems.removeWhere(
+          (item) => item['product_id'] == productId && item['size'] == size);
 
       await cartDataBase.pb.collection('cart').update(
         cart.id,
         body: {
-          'product_id': updatedProductIds,
+          'items': updatedItems,
           'updated': DateTime.now().toIso8601String(),
         },
       );
 
       cart = cart.copyWith(
-        productId: updatedProductIds,
+        items: updatedItems,
         updated: DateTime.now(),
       );
+      print('Removed item from cart: $cart');
     } catch (e) {
       print('Error removing product from cart: $e');
+      throw e;
+    }
+  }
+
+  Future<void> addProductToCart(
+      String productId, String size, int quantity) async {
+    try {
+      final currentCart =
+          await cartDataBase.pb.collection('cart').getOne(cart.id);
+      List<Map<String, dynamic>> updatedItems =
+          List.from(currentCart.toJson()['items'] as List<dynamic>)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+
+      updatedItems.add({
+        'product_id': productId,
+        'size': size,
+        'quantity': quantity,
+      });
+
+      await cartDataBase.pb.collection('cart').update(
+        cart.id,
+        body: {
+          'items': updatedItems,
+          'updated': DateTime.now().toIso8601String(),
+        },
+      );
+
+      cart = cart.copyWith(
+        items: updatedItems,
+        updated: DateTime.now(),
+      );
+      print('Added item to cart: $cart');
+    } catch (e) {
+      print('Error adding product to cart: $e');
       throw e;
     }
   }

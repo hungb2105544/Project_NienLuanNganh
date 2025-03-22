@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:project/account_page.dart';
 import 'package:project/favorite_screen.dart';
-import 'package:project/favourite_page.dart';
 import 'package:project/home.dart';
+import 'package:project/promotion_screen.dart';
 
 enum _SelectedTab { home, favorite, discount, person }
 
@@ -25,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _pages = <Widget>[
     const Home(),
     const FavoriteProductsScreen(),
-    const Home(),
+    const PromotionListScreen(),
     const AccountPage(),
   ];
 

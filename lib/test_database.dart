@@ -5,11 +5,10 @@ void main() async {
   PocketBase data = PocketBase("http://127.0.0.1:8090");
 
   try {
-    final exitingRecord =
-        await data.collection('favorite_products').getFullList(
-              filter: "id_users = '314v4ihc7i7t7ho'",
-            );
-    print(jsonEncode(exitingRecord.first));
+    final exitingRecord = await data.collection('user_promotions').getFullList(
+          filter: "user_id = 'yi0p96o01g06380'",
+        );
+    print(jsonEncode(exitingRecord));
   } catch (e) {
     print(e);
   }

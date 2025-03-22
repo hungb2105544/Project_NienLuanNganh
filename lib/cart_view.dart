@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:project/auth_service.dart';
 import 'package:project/component/cart_item.dart';
 import 'package:project/model/cart/cart.dart';
 import 'package:project/model/product/product.dart';
@@ -7,152 +6,192 @@ import 'package:project/model/product/product_manager.dart';
 import 'package:project/model/user/user.dart';
 import 'package:project/order_temp.dart';
 import 'package:project/model/cart/cart_manager.dart';
-import 'package:provider/provider.dart';
 
 class CartView extends StatefulWidget {
+  final Cart cart;
+  final User user;
+
   const CartView({
     super.key,
     required this.cart,
     required this.user,
   });
-  final Cart cart;
-  final User user;
 
   @override
   State<CartView> createState() => _CartViewState();
 }
 
 class _CartViewState extends State<CartView> {
-  late int total = 0;
-  late List<String> listId = [];
-  final List<Product> listProduct = [];
-  final ProductManager productManager = ProductManager();
-  final CartManager cartManager = CartManager();
-
-  Future<void> fetchProduct(Cart cart) async {
-    List<Product> list = [];
-    for (var item in cart.productId) {
-      final product = await productManager.getProductById(item);
-      list.add(product);
-    }
-    setState(() {
-      listProduct.addAll(list);
-      listId = cart.productId;
-    });
-  }
+  late final CartManager cartManager;
+  late final ProductManager productManager;
+  final Map<String, Product> cartProducts = {}; // Map để lưu product theo ID
+  final Set<String> selectedItems = {}; // Theo dõi các item được chọn
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    cartManager = CartManager();
+    productManager = ProductManager();
     cartManager.cart = widget.cart;
-    fetchProduct(widget.cart);
-    total = 0;
+    _loadCartProducts();
   }
 
-  void updateTotal(int change) {
-    setState(() {
-      total += change;
-    });
-  }
-
-  void updateListProduct(Function(List<String>) updateFunction) {
-    setState(() {
-      listId = updateFunction(listId);
-    });
-  }
-
-  Future<void> removeProduct(Product product) async {
+  Future<void> _loadCartProducts() async {
     try {
-      await cartManager.removeProductFromCart(product.id);
+      // Lấy danh sách product ID từ items
+      final productIds =
+          widget.cart.items.map((item) => item['product_id'] as String).toSet();
+      final products = await Future.wait(
+        productIds.map((id) => productManager.getProductById(id)),
+      );
+
+      if (mounted) {
+        setState(() {
+          cartProducts.clear();
+          for (var product in products) {
+            cartProducts[product.id] = product;
+          }
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
+        _showErrorSnackBar('Failed to load cart: $e');
+      }
+    }
+  }
+
+  double get totalAmount {
+    return widget.cart.items.fold(0, (sum, item) {
+      final product = cartProducts[item['product_id']];
+      final quantity = item['quantity'] as int? ?? 1;
+      final price = product?.price ?? 0;
+      final itemKey = "${item['product_id']}-${item['size']}";
+      // Chỉ tính tổng cho các item được chọn
+      return selectedItems.contains(itemKey) ? sum + (price * quantity) : sum;
+    });
+  }
+
+  Future<void> _removeProduct(String productId, String size) async {
+    try {
+      await cartManager.removeProductFromCart(productId, size);
       setState(() {
-        listProduct.removeWhere((item) => item.id == product.id);
+        widget.cart.items.removeWhere(
+          (item) => item['product_id'] == productId && item['size'] == size,
+        );
+        selectedItems.remove("$productId-$size"); // Xóa khỏi danh sách chọn
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to remove product: $e')),
-      );
+      _showErrorSnackBar('Failed to remove product: $e');
     }
+  }
+
+  void _toggleItemSelection(String productId, String size, bool isSelected) {
+    final itemKey = "$productId-$size";
+    setState(() {
+      if (isSelected) {
+        selectedItems.add(itemKey);
+      } else {
+        selectedItems.remove(itemKey);
+      }
+    });
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          appBar: AppBar(
-            title: Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 50),
-                child: Text('Cart'),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Cart'),
+        centerTitle: true,
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : widget.cart.items.isEmpty
+              ? const Center(child: Text('Your cart is empty'))
+              : ListView.builder(
+                  itemCount: widget.cart.items.length,
+                  itemBuilder: (context, index) {
+                    final item = widget.cart.items[index];
+                    final product = cartProducts[item['product_id']];
+                    if (product == null) return const SizedBox.shrink();
+
+                    final itemKey = "${item['product_id']}-${item['size']}";
+                    final isSelected = selectedItems.contains(itemKey);
+
+                    return CartItem(
+                      product: product,
+                      size: item['size'] as String,
+                      quantity: item['quantity'] as int? ?? 1,
+                      isSelected: isSelected,
+                      onToggleSelection: (selected) => _toggleItemSelection(
+                          product.id, item['size'] as String, selected),
+                      onDelete: () => _removeProduct(
+                        product.id,
+                        item['size'] as String,
+                      ),
+                    );
+                  },
+                ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        height: 80,
+        child: Row(
+          children: [
+            Text(
+              'Total: ${totalAmount.toStringAsFixed(2)} VND',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
-          body: listProduct.isEmpty
-              ? Center(child: Text('Your cart is empty'))
-              : ListView(
-                  children: [
-                    for (var item in listProduct)
-                      CartItem(
-                        product: item,
-                        onListProductChanged: updateListProduct,
-                        onTotalChanged: updateTotal,
-                        onDelete: () => removeProduct(item),
-                      ),
-                  ],
+            const Spacer(),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
                 ),
-          bottomNavigationBar: Container(
-            height: MediaQuery.of(context).size.height * 0.1,
-            child: Row(
-              children: [
-                Container(
-                  margin: EdgeInsets.only(left: 20),
-                  child: Text(
-                    'Tổng tiền: $total VND',
-                    style: TextStyle(fontSize: 18, color: Colors.black),
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                Spacer(),
-                Container(
-                  margin: EdgeInsets.only(right: 20),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 5,
-                      shadowColor: Colors.black45,
-                    ),
-                    onPressed: listProduct.isEmpty
-                        ? null
-                        : () => {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => OrderTemp(
-                                    listId: listId,
-                                  ),
-                                ),
-                              )
-                            },
-                    child: Text(
-                      'Place Order',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                )
-              ],
+              ),
+              onPressed: selectedItems.isEmpty
+                  ? null // Vô hiệu hóa nếu không có sản phẩm nào được chọn
+                  : () {
+                      final selectedCartItems = widget.cart.items.where((item) {
+                        final itemKey = "${item['product_id']}-${item['size']}";
+                        return selectedItems.contains(itemKey);
+                      }).toList();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OrderTemp(
+                            cartItems: selectedCartItems,
+                          ),
+                        ),
+                      );
+                    },
+              child: const Text(
+                'Place Order',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

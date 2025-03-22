@@ -27,12 +27,15 @@ class _HomeState extends State<Home> {
 
   Future<void> _fetchCartItems(User user) async {
     try {
-      await cartManager.fetchCartItemsByid(user);
+      await cartManager.fetchCartItemsById(user);
       setState(() {
-        numberOfCart = cartManager.cart.productId.length;
+        numberOfCart = cartManager.cart.items.length; // Cập nhật dựa trên items
       });
     } catch (e) {
       print('Failed to fetch cart items: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load cart: $e')),
+      );
     }
   }
 

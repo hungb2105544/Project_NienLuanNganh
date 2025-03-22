@@ -21,7 +21,30 @@ class _CardViewState extends State<CardView> {
   int quantity = 1;
   bool isLoading = false;
 
-  final List<String> availableSizes = ['S', 'M', 'L', 'XL'];
+  List<String> getAvailableSizes() {
+    if (widget.product.sizes != null &&
+        widget.product.sizes!['items'] != null) {
+      final items = widget.product.sizes!['items'] as List<dynamic>;
+      return items
+          .where((item) => (item['quantity'] as int) > 0)
+          .map((item) => item['size'] as String)
+          .toList();
+    }
+    return [];
+  }
+
+  int getMaxQuantityForSize(String size) {
+    if (widget.product.sizes != null &&
+        widget.product.sizes!['items'] != null) {
+      final items = widget.product.sizes!['items'] as List<dynamic>;
+      final selectedItem = items.firstWhere(
+        (item) => item['size'] == size,
+        orElse: () => {'quantity': 0},
+      );
+      return selectedItem['quantity'] as int;
+    }
+    return 0;
+  }
 
   Future<void> addToCart(String idProduct) async {
     setState(() {
@@ -34,15 +57,63 @@ class _CardViewState extends State<CardView> {
       final user = authService.currentUser;
       final DataBase dataBase = DataBase();
 
+      // Kiểm tra số lượng tối đa cho kích thước đã chọn
+      final maxQuantity = getMaxQuantityForSize(selectedSize!);
+      if (quantity > maxQuantity) {
+        throw Exception(
+            'Quantity exceeds available stock ($maxQuantity) for size $selectedSize');
+      }
+
+      // Lấy giỏ hàng hiện tại của user
       final record = await dataBase.pb.collection("cart").getFullList(
             filter: 'user_id = "${user!.id}"',
           );
-      final Cart cart = Cart.fromJson(record.first.toJson());
 
-      cart.productId.add(idProduct);
-      await dataBase.pb.collection("cart").update(cart.id, body: {
-        "product_id": cart.productId,
-      });
+      if (record.isEmpty) {
+        // Nếu chưa có giỏ hàng, tạo mới
+        final newCart = {
+          "user_id": user.id,
+          "items": [
+            {
+              "product_id": idProduct,
+              "size": selectedSize,
+              "quantity": quantity,
+            }
+          ],
+        };
+        await dataBase.pb.collection("cart").create(body: newCart);
+      } else {
+        // Nếu đã có giỏ hàng, cập nhật
+        final Cart cart = Cart.fromJson(record.first.toJson());
+        // Kiểm tra xem sản phẩm với kích thước này đã tồn tại chưa
+        final existingItemIndex = cart.items.indexWhere(
+          (item) =>
+              item['product_id'] == idProduct && item['size'] == selectedSize,
+        );
+
+        if (existingItemIndex != -1) {
+          // Nếu đã tồn tại, cộng dồn số lượng
+          final currentQuantity =
+              cart.items[existingItemIndex]['quantity'] as int;
+          if (currentQuantity + quantity > maxQuantity) {
+            throw Exception(
+                'Total quantity exceeds available stock ($maxQuantity) for size $selectedSize');
+          }
+          cart.items[existingItemIndex]['quantity'] =
+              currentQuantity + quantity;
+        } else {
+          // Nếu chưa tồn tại, thêm mới
+          cart.items.add({
+            "product_id": idProduct,
+            "size": selectedSize,
+            "quantity": quantity,
+          });
+        }
+
+        await dataBase.pb.collection("cart").update(cart.id, body: {
+          "items": cart.items,
+        });
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -103,13 +174,16 @@ class _CardViewState extends State<CardView> {
       );
     } finally {
       setState(() {
-        isLoading = false; // Kết thúc loading
+        isLoading = false;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    print("Debug Product: ${widget.product}");
+    print("Available sizes: ${getAvailableSizes()}");
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.product.name),
@@ -123,7 +197,6 @@ class _CardViewState extends State<CardView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Hiển thị hình ảnh sản phẩm
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image(
@@ -136,7 +209,6 @@ class _CardViewState extends State<CardView> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Hiển thị tên sản phẩm
               Text(
                 widget.product.name,
                 style: const TextStyle(
@@ -145,8 +217,6 @@ class _CardViewState extends State<CardView> {
                 ),
               ),
               const SizedBox(height: 10),
-
-              // Hiển thị giá sản phẩm
               Text(
                 '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(widget.product.price)}',
                 style: const TextStyle(
@@ -166,16 +236,16 @@ class _CardViewState extends State<CardView> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 10),
                   DropdownButton<String>(
                     value: selectedSize,
                     hint: const Text('Choose size'),
                     onChanged: (String? newValue) {
                       setState(() {
                         selectedSize = newValue;
+                        quantity = 1; // Reset quantity khi chọn size mới
                       });
                     },
-                    items: availableSizes
+                    items: getAvailableSizes()
                         .map<DropdownMenuItem<String>>((String value) {
                       return DropdownMenuItem<String>(
                         alignment: Alignment.center,
@@ -186,9 +256,7 @@ class _CardViewState extends State<CardView> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 20),
-
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -199,7 +267,6 @@ class _CardViewState extends State<CardView> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 10),
                   Row(
                     children: [
                       IconButton(
@@ -219,19 +286,38 @@ class _CardViewState extends State<CardView> {
                       IconButton(
                         icon: const Icon(Icons.add),
                         onPressed: () {
-                          setState(() {
-                            quantity++;
-                          });
+                          final maxQuantity =
+                              getMaxQuantityForSize(selectedSize ?? '');
+                          if (selectedSize == null || quantity < maxQuantity) {
+                            setState(() {
+                              quantity++;
+                            });
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Cannot exceed available quantity ($maxQuantity)',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                backgroundColor: Colors.orange,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ],
                   ),
                 ],
               ),
-
+              if (selectedSize != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'Available: ${getMaxQuantityForSize(selectedSize!)}',
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ],
               const SizedBox(height: 20),
-
-              // Hiển thị mô tả sản phẩm
               Text(
                 widget.product.description,
                 style: const TextStyle(
@@ -251,7 +337,7 @@ class _CardViewState extends State<CardView> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: isLoading
-                  ? null // Vô hiệu hóa nút khi đang loading
+                  ? null
                   : () {
                       if (selectedSize == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -292,8 +378,7 @@ class _CardViewState extends State<CardView> {
                 ),
               ),
               child: isLoading
-                  ? CircularProgressIndicator(
-                      color: Colors.white) // Hiển thị loading indicator
+                  ? CircularProgressIndicator(color: Colors.white)
                   : Text(
                       'Add to Cart',
                       style: TextStyle(

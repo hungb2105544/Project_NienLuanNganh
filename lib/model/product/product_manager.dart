@@ -13,16 +13,20 @@ class ProductManager extends ChangeNotifier {
   List<Product> _allProducts = [];
 
   List get allProducts => _allProducts;
+
   Future<void> fetchProducts() async {
     try {
       final response =
           await productDataBase.pb.collection('products').getFullList();
+      print(
+          'Raw PocketBase response: ${response.map((item) => item.toJson())}');
       if (response.isEmpty) {
         print('No products found.');
         _productsController.add([]);
       } else {
         _allProducts =
             response.map((item) => Product.fromJson(item.toJson())).toList();
+        print('Parsed products: ${_allProducts.map((p) => p.sizes)}');
         _productsController.add(_allProducts);
       }
       notifyListeners();
@@ -39,11 +43,14 @@ class ProductManager extends ChangeNotifier {
                 expand: "category_id",
                 filter: "category_id.name = '$category'",
               );
+      print(
+          'Raw PocketBase response (category): ${response.map((item) => item.toJson())}');
       if (response.isEmpty) {
         _productsController.add([]);
       } else {
         final products =
             response.map((item) => Product.fromJson(item.toJson())).toList();
+        print('Parsed products (category): ${products.map((p) => p.sizes)}');
         _productsController.add(products);
       }
       notifyListeners();
@@ -58,6 +65,7 @@ class ProductManager extends ChangeNotifier {
       final response =
           await productDataBase.pb.collection('products').getOne(id);
       final product = Product.fromJson(response.toJson());
+      print('Parsed product by ID: ${product.sizes}');
       return product;
     } catch (e) {
       print('Error fetching product: $e');
