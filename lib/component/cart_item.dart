@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:project/model/product/product.dart';
 
 class CartItem extends StatelessWidget {
@@ -63,7 +64,7 @@ class CartItem extends StatelessWidget {
                   Text('Quantity: $quantity',
                       style: const TextStyle(fontSize: 14)),
                   Text(
-                    'Price: ${(product.price * quantity).toStringAsFixed(2)} VND',
+                    'Price: ${NumberFormat('#,##0', 'vi_VN').format(product.price * quantity)} VND',
                     style: const TextStyle(fontSize: 14, color: Colors.black54),
                   ),
                 ],

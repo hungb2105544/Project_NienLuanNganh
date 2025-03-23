@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:project/auth_service.dart';
 import 'package:project/model/address/address.dart';
 import 'package:project/model/address/address_manager.dart';
@@ -8,14 +10,13 @@ import 'package:project/model/order/order.dart';
 import 'package:project/model/product/product.dart';
 import 'package:project/model/product/product_manager.dart';
 import 'package:project/model/user/user.dart';
-import 'package:project/order_information_page.dart';
 import 'package:project/success_screen_order.dart';
 import 'package:provider/provider.dart';
 import 'package:random_string/random_string.dart';
 
 class OrderTemp extends StatefulWidget {
   const OrderTemp({super.key, required this.cartItems});
-  final List<Map<String, dynamic>> cartItems; // Danh sách items từ giỏ hàng
+  final List<Map<String, dynamic>> cartItems;
 
   @override
   State<OrderTemp> createState() => _OrderTempState();
@@ -128,39 +129,98 @@ class _OrderTempState extends State<OrderTemp> {
       return;
     }
 
+    if (widget.cartItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Cart is empty. Cannot create order.")),
+      );
+      return;
+    }
+
     final body = <String, dynamic>{
       "userid": user.id,
       "order_code": "OCD${randomNumeric(5)}",
-      "order_date": DateTime.now().toString(),
-      "total_number": widget.cartItems.length, // Số lượng sản phẩm
+      "order_date": DateTime.now().toIso8601String(),
+      "total_number": totalPrice,
       "status": "pending",
       "payment_method": paymentMethod,
       "address_id": selectedAddress!.id,
-      "total_price": totalPrice, // Tổng giá tiền
     };
 
     try {
-      // Tạo đơn hàng
       await dataBase.pb.collection('orders').create(body: body);
-
-      // Lấy đơn hàng vừa tạo
       final order = await dataBase.pb.collection('orders').getList(
             filter: 'userid="${user.id}"',
             sort: '-created',
           );
       final Order newOrder = Order.fromJson(order.items[0].toJson());
 
-      // Tạo từng order_item cho mỗi sản phẩm
       for (var item in widget.cartItems) {
         final bodyOrderItem = <String, dynamic>{
           "order_id": newOrder.id,
-          "product_id": item['product_id'],
-          "quantity": item['quantity'] ?? 1,
+          "items": {
+            "product_id": item['product_id'],
+            "quantity": item['quantity'] ?? 1,
+          },
         };
+        print("Creating order item with body: $bodyOrderItem");
         await dataBase.pb.collection('order_item').create(body: bodyOrderItem);
       }
 
-      // Cập nhật giỏ hàng
+      for (var item in widget.cartItems) {
+        final productId = item['product_id'];
+        final orderedQuantity = item['quantity'] ?? 1;
+        final selectedSize = item['size']?.toString();
+
+        if (selectedSize == null) {
+          throw Exception("Size not specified for product $productId");
+        }
+
+        final productResponse =
+            await dataBase.pb.collection('products').getOne(productId);
+        final product = Product.fromJson(productResponse.toJson());
+
+        if (product.sizes != null && product.sizes!.isNotEmpty) {
+          final sizesList = product.sizes!['items'] as List<dynamic>? ?? [];
+          print("Current sizes before update: $sizesList");
+
+          bool sizeFound = false;
+          for (var sizeEntry in sizesList) {
+            if (sizeEntry['size'] == selectedSize) {
+              final currentQuantity = (sizeEntry['quantity'] as num).toInt();
+              final newQuantity = currentQuantity - orderedQuantity;
+
+              if (newQuantity < 0) {
+                throw Exception(
+                    "Insufficient stock for product $productId, size $selectedSize");
+              }
+
+              sizeEntry['quantity'] = newQuantity;
+              sizeFound = true;
+              break;
+            }
+          }
+
+          if (!sizeFound) {
+            throw Exception(
+                "Size $selectedSize not found for product $productId");
+          }
+
+          print("Updated sizes: $sizesList");
+
+          final updatedSizesString = jsonEncode(sizesList);
+
+          final updateBody = <String, dynamic>{
+            "sizes": updatedSizesString,
+            "updated": DateTime.now().toIso8601String(),
+          };
+          await dataBase.pb
+              .collection('products')
+              .update(productId, body: updateBody);
+        } else {
+          throw Exception("Product $productId has no sizes defined");
+        }
+      }
+
       final recordCart = await dataBase.pb
           .collection('cart')
           .getFullList(filter: 'user_id = "${user.id}"');
@@ -171,20 +231,20 @@ class _OrderTempState extends State<OrderTemp> {
               newItem['product_id'] == oldItem['product_id'] &&
               newItem['size'] == oldItem['size']))
           .toList();
-
+      print("Updated cart items: $listNewItems");
       final bodyCart = <String, dynamic>{
-        "user_id": user.id,
+        "order_id": newOrder.id,
         "items": listNewItems,
         "updated": DateTime.now().toIso8601String(),
       };
       await dataBase.pb.collection('cart').update(cart.id, body: bodyCart);
 
-      // Chuyển đến màn hình thành công
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => SuccessScreen()),
       );
     } catch (e) {
+      print("Error creating order: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error creating order: $e")),
       );
@@ -209,28 +269,41 @@ class _OrderTempState extends State<OrderTemp> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Order Information')),
+      appBar: AppBar(
+        title: const Text('Order Information'),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: BouncingScrollPhysics(),
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('User information', style: _titleStyle),
-              SizedBox(height: 8),
+              const Text(
+                'User Information',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
               _buildUserInfo(user),
-              SizedBox(height: 8),
-              Text('List Products', style: _titleStyle),
+              const SizedBox(height: 16),
+              const Text(
+                'List Products',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               listProduct.isEmpty
-                  ? Center(child: Text("No products available"))
-                  : Column(
-                      children: widget.cartItems.map((item) {
+                  ? const Center(child: Text("No products available"))
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: widget.cartItems.length,
+                      itemBuilder: (context, index) {
+                        final item = widget.cartItems[index];
                         final product = listProduct.firstWhere(
                             (p) => p.id == item['product_id'],
                             orElse: () => Product(
                                 id: '',
-                                name: '',
+                                name: 'Unknown',
                                 price: 0.0,
                                 image: '',
                                 description: '',
@@ -241,12 +314,16 @@ class _OrderTempState extends State<OrderTemp> {
                           quantity: item['quantity'] ?? 1,
                           onRemove: () {},
                         );
-                      }).toList(),
+                      },
                     ),
-              SizedBox(height: 8),
-              Text('Address', style: _titleStyle),
+              const SizedBox(height: 16),
+              const Text(
+                'Address',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               addresses.isEmpty
-                  ? Center(child: Text("No addresses available"))
+                  ? const Center(child: Text("No addresses available"))
                   : AddressSelection(
                       addresses: addresses,
                       onAddressSelected: (selected) {
@@ -255,8 +332,12 @@ class _OrderTempState extends State<OrderTemp> {
                         });
                       },
                     ),
-              SizedBox(height: 8),
-              Text('Payment Method', style: _titleStyle),
+              const SizedBox(height: 16),
+              const Text(
+                'Payment Method',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               PaymentDropdown(
                 onChanged: (value) {
                   setState(() {
@@ -264,86 +345,109 @@ class _OrderTempState extends State<OrderTemp> {
                   });
                 },
               ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _buildTotalAndButtons(totalPrice),
     );
   }
 
   Widget _buildUserInfo(User? user) {
     return Container(
-      padding: EdgeInsets.all(8),
-      decoration: _boxDecoration(),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
+          const CircleAvatar(
+            radius: 30,
             backgroundColor: Colors.black,
             child: Icon(Icons.person, size: 30, color: Colors.white),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(user?.fullname ?? 'Unknown', style: _boldTextStyle),
-                SizedBox(height: 4),
-                Text(user?.phone ?? 'Unknown', style: _normalTextStyle),
-                SizedBox(height: 4),
-                Text('Order Status: Pending', style: _normalTextStyle),
+                Text(user?.fullname ?? 'Unknown',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(user?.phone ?? 'Unknown',
+                    style:
+                        const TextStyle(fontSize: 16, color: Colors.black54)),
+                const SizedBox(height: 4),
+                const Text('Order Status: Pending',
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
-          Icon(Icons.access_time, color: Colors.black54),
         ],
       ),
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildTotalAndButtons(double total) {
     return Container(
-      height: 60,
-      padding: EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('Total: ${totalPrice.toStringAsFixed(2)} VND',
-              style: TextStyle(fontSize: 18, color: Colors.black)),
-          Spacer(),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: 5,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Text(
+              "Tổng: ${NumberFormat.currency(locale: 'vi_VN', symbol: 'VND').format(total)}",
+              key: ValueKey(total),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color.fromARGB(255, 0, 0, 0),
+              ),
             ),
+          ),
+          ElevatedButton.icon(
             onPressed: makeOrder,
-            child: Text('Place Order',
-                style: TextStyle(fontSize: 18, color: Colors.white)),
+            icon: const Icon(Icons.check_circle, size: 22, color: Colors.white),
+            label: const Text('Place Order'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 4,
+            ),
           ),
         ],
       ),
     );
   }
-
-  BoxDecoration _boxDecoration() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.black, width: 2),
-      boxShadow: [
-        BoxShadow(color: Colors.black26, blurRadius: 5, offset: Offset(0, 3))
-      ],
-    );
-  }
 }
-
-const _titleStyle = TextStyle(fontSize: 20, fontWeight: FontWeight.bold);
-const _boldTextStyle =
-    TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black);
-const _normalTextStyle = TextStyle(fontSize: 16, color: Colors.black);
 
 class AddressSelection extends StatefulWidget {
   final List<Address> addresses;
@@ -369,13 +473,20 @@ class _AddressSelectionState extends State<AddressSelection> {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: const Color.fromARGB(0, 255, 255, 255),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
           child: ListView.builder(
             shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             itemCount: widget.addresses.length,
             itemBuilder: (context, index) {
               Address address = widget.addresses[index];
@@ -389,10 +500,10 @@ class _AddressSelectionState extends State<AddressSelection> {
                   widget.onAddressSelected(address);
                 },
                 child: AnimatedContainer(
-                  duration: Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
-                  margin: EdgeInsets.symmetric(vertical: 6),
-                  padding: EdgeInsets.all(14),
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
@@ -407,7 +518,7 @@ class _AddressSelectionState extends State<AddressSelection> {
                             BoxShadow(
                               color: Colors.black26,
                               blurRadius: 8,
-                              offset: Offset(0, 4),
+                              offset: const Offset(0, 4),
                             ),
                           ]
                         : [],
@@ -419,7 +530,7 @@ class _AddressSelectionState extends State<AddressSelection> {
                         color: isSelected ? Colors.white : Colors.black,
                         size: 24,
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,7 +543,7 @@ class _AddressSelectionState extends State<AddressSelection> {
                                 color: isSelected ? Colors.white : Colors.black,
                               ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
                               '${address.street}, ${address.city}, ${address.state}',
                               style: TextStyle(
@@ -477,33 +588,35 @@ class _PaymentDropdownState extends State<PaymentDropdown> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 8),
         ),
         value: selectedMethod,
-        hint: Text("Select Payment Method", style: TextStyle(fontSize: 16)),
+        hint:
+            const Text("Select Payment Method", style: TextStyle(fontSize: 16)),
         isExpanded: true,
-        style: TextStyle(fontSize: 16, color: Colors.black87),
+        style: const TextStyle(fontSize: 16, color: Colors.black87),
         dropdownColor: Colors.white,
-        icon: Icon(Icons.arrow_drop_down, color: Colors.black),
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
         items: paymentMethods.map((method) {
           return DropdownMenuItem(
             value: method,
-            child: Text(method, style: TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(method,
+                style: const TextStyle(fontWeight: FontWeight.w500)),
           );
         }).toList(),
         onChanged: (value) {
@@ -531,12 +644,29 @@ class ProductItemInOrder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(product.name ?? 'Unknown Product'),
-      subtitle: Text('Price: ${product.price} VND x $quantity'),
-      trailing: IconButton(
-        icon: Icon(Icons.remove_circle),
-        onPressed: onRemove,
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: Hero(
+          tag: product.id,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              "http://10.0.2.2:8090/api/files/products/${product.id}/${product.image}",
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.error),
+            ),
+          ),
+        ),
+        title: Text(product.name,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(
+            '${NumberFormat('#,##0', 'vi_VN').format(product.price * quantity)} VND | Số lượng: $quantity'),
       ),
     );
   }

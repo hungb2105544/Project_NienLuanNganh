@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:project/component/cart_item.dart';
 import 'package:project/model/cart/cart.dart';
 import 'package:project/model/product/product.dart';
@@ -24,8 +25,8 @@ class CartView extends StatefulWidget {
 class _CartViewState extends State<CartView> {
   late final CartManager cartManager;
   late final ProductManager productManager;
-  final Map<String, Product> cartProducts = {}; // Map để lưu product theo ID
-  final Set<String> selectedItems = {}; // Theo dõi các item được chọn
+  final Map<String, Product> cartProducts = {};
+  final Set<String> selectedItems = {};
   bool isLoading = true;
 
   @override
@@ -39,7 +40,6 @@ class _CartViewState extends State<CartView> {
 
   Future<void> _loadCartProducts() async {
     try {
-      // Lấy danh sách product ID từ items
       final productIds =
           widget.cart.items.map((item) => item['product_id'] as String).toSet();
       final products = await Future.wait(
@@ -69,7 +69,7 @@ class _CartViewState extends State<CartView> {
       final quantity = item['quantity'] as int? ?? 1;
       final price = product?.price ?? 0;
       final itemKey = "${item['product_id']}-${item['size']}";
-      // Chỉ tính tổng cho các item được chọn
+
       return selectedItems.contains(itemKey) ? sum + (price * quantity) : sum;
     });
   }
@@ -81,7 +81,7 @@ class _CartViewState extends State<CartView> {
         widget.cart.items.removeWhere(
           (item) => item['product_id'] == productId && item['size'] == size,
         );
-        selectedItems.remove("$productId-$size"); // Xóa khỏi danh sách chọn
+        selectedItems.remove("$productId-$size");
       });
     } catch (e) {
       _showErrorSnackBar('Failed to remove product: $e');
@@ -146,7 +146,7 @@ class _CartViewState extends State<CartView> {
         child: Row(
           children: [
             Text(
-              'Total: ${totalAmount.toStringAsFixed(2)} VND',
+              'Total: ${NumberFormat.currency(locale: 'vi_VN', symbol: 'VND').format(totalAmount)}',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -165,7 +165,7 @@ class _CartViewState extends State<CartView> {
                 ),
               ),
               onPressed: selectedItems.isEmpty
-                  ? null // Vô hiệu hóa nếu không có sản phẩm nào được chọn
+                  ? null
                   : () {
                       final selectedCartItems = widget.cart.items.where((item) {
                         final itemKey = "${item['product_id']}-${item['size']}";

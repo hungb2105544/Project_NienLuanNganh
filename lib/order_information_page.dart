@@ -29,8 +29,8 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
 
   Future<List<Map<String, dynamic>>> getOrderItems(Order order) async {
     OrderItemManager orderItemManager = OrderItemManager();
-    final orderItems =
-        await orderItemManager.getOrderItems(order.id); // Lấy tất cả order_item
+    final orderItems = await orderItemManager.getOrderItems(order.id);
+    print("Order items: $orderItems"); // Debug dữ liệu trả về
     return orderItems ?? [];
   }
 
@@ -38,18 +38,44 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
     ProductManager productManager = ProductManager();
     List<Product> products = [];
     for (var id in idProducts) {
-      final product = await productManager.getProductById(id);
-      products.add(product);
+      if (id.isNotEmpty) {
+        try {
+          final product = await productManager.getProductById(id);
+          products.add(product);
+        } catch (e) {
+          print("Error fetching product with id $id: $e");
+        }
+      }
     }
     return products;
   }
 
   Future<List<Map<String, dynamic>>> getProductInOrder(Order order) async {
     final orderItems = await getOrderItems(order);
-    final productIds =
-        orderItems.map((item) => item['product_id'] as String).toList();
+    final productIds = orderItems
+        .where((item) =>
+            item['product_id'] != null && item['product_id'] is String)
+        .map((item) => item['product_id'] as String)
+        .toList();
+    print("Product IDs: $productIds");
+
     final products = await getProductsOfOrder(productIds);
     return orderItems.map((item) {
+      if (item['product_id'] == null || item['product_id'] is! String) {
+        return {
+          'product': Product(
+              id: '',
+              name: 'Unknown',
+              price: 0.0,
+              image: '',
+              description: '',
+              categoryId: '',
+              created: DateTime.now(),
+              updated: DateTime.now()),
+          'quantity': item['quantity'] ?? 1,
+        };
+      }
+
       final product = products.firstWhere((p) => p.id == item['product_id'],
           orElse: () => Product(
               id: '',
@@ -120,7 +146,9 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Order Information'),
+        title: const Text('Order Information',
+            style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.black,
         centerTitle: true,
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
@@ -335,7 +363,7 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: Text(
-              "Tổng: ₫${total.toStringAsFixed(0)}",
+              "Tổng: ${NumberFormat.currency(locale: 'vi_VN', symbol: 'VND').format(total)}",
               key: ValueKey(total),
               style: const TextStyle(
                 fontSize: 18,
@@ -344,8 +372,7 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
               ),
             ),
           ),
-          if (_currentOrder.status == "pending" ||
-              _currentOrder.status == "processing")
+          if (_currentOrder.status == "shipped")
             ElevatedButton.icon(
               onPressed: confirmOrder,
               icon:
@@ -403,8 +430,8 @@ class ProductItemInOrder extends StatelessWidget {
         ),
         title: Text(product.name,
             style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle:
-            Text('₫${product.price.toStringAsFixed(0)} | Số lượng: $quantity'),
+        subtitle: Text(
+            '${NumberFormat('#,##0', 'vi_VN').format(product.price * quantity)} VND | Số lượng: $quantity'),
       ),
     );
   }
