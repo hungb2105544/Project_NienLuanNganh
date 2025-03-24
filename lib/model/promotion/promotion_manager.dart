@@ -55,6 +55,29 @@ class PromotionManager extends ChangeNotifier {
     }
   }
 
+  Future<void> getPromotionByListId(List<String> ids) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+      final List<Promotion> newPromotions = await Future.wait(
+        ids.map((id) async {
+          final record =
+              await promotionDatabase.pb.collection('promotions').getOne(id);
+          return Promotion.fromJson(record.toJson());
+        }),
+      );
+
+      if (_promotions != newPromotions) {
+        _promotions = newPromotions;
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch promotions by list of IDs: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   void clear() {
     _promotions = [];
     _promotion = null;

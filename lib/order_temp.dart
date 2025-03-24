@@ -9,6 +9,9 @@ import 'package:project/model/database/pocketbase.dart';
 import 'package:project/model/order/order.dart';
 import 'package:project/model/product/product.dart';
 import 'package:project/model/product/product_manager.dart';
+import 'package:project/model/promotion/promotion.dart';
+import 'package:project/model/promotion_user/promotion_user.dart';
+import 'package:project/model/promotion_user/promotion_user_manager.dart';
 import 'package:project/model/user/user.dart';
 import 'package:project/success_screen_order.dart';
 import 'package:provider/provider.dart';
@@ -30,11 +33,41 @@ class _OrderTempState extends State<OrderTemp> {
   double totalPrice = 0.0;
   bool isLoading = true;
   String? errorMessage;
+  List<Promotion> promotionsUserHaved = [];
+  String? selectedPromotionId;
 
   @override
   void initState() {
     super.initState();
     fetchData();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.currentUser != null) {
+      getPromotion(authService.currentUser!.id, context);
+    }
+  }
+
+  Future<void> getPromotion(String userId, BuildContext context) async {
+    final promotionUserManager =
+        Provider.of<PromotionUserManager>(context, listen: false);
+    try {
+      await promotionUserManager.getPromotionByUserId(userId);
+      final now = DateTime.now();
+      setState(() {
+        promotionsUserHaved = promotionUserManager.promotions
+            .where((promo) =>
+                promo.active &&
+                promo.startDate.isBefore(now) &&
+                promo.endDate.isAfter(now) &&
+                promo.minOrderValue <= totalPrice &&
+                promo.usedCount < promo.maxUsage)
+            .toList();
+      });
+    } catch (e) {
+      print('Error getting promotion: $e');
+      setState(() {
+        promotionsUserHaved = [];
+      });
+    }
   }
 
   Future<void> fetchData() async {
@@ -74,6 +107,17 @@ class _OrderTempState extends State<OrderTemp> {
               updated: DateTime.now()));
       final quantity = (item['quantity'] as int? ?? 1);
       total += product.price * quantity;
+    }
+
+    if (selectedPromotionId != null) {
+      final selectedPromotion = promotionsUserHaved
+          .firstWhere((promo) => promo.id == selectedPromotionId);
+      if (selectedPromotion.discountType == 'percentage') {
+        total = total * (1 - selectedPromotion.discountValue / 100);
+      } else if (selectedPromotion.discountType == 'fixed') {
+        total = total - selectedPromotion.discountValue;
+        if (total < 0) total = 0;
+      }
     }
     return total;
   }
@@ -144,9 +188,11 @@ class _OrderTempState extends State<OrderTemp> {
       "status": "pending",
       "payment_method": paymentMethod,
       "address_id": selectedAddress!.id,
+      "promotion_id": selectedPromotionId,
     };
 
     try {
+      // Create the order
       await dataBase.pb.collection('orders').create(body: body);
       final order = await dataBase.pb.collection('orders').getList(
             filter: 'userid="${user.id}"',
@@ -154,6 +200,7 @@ class _OrderTempState extends State<OrderTemp> {
           );
       final Order newOrder = Order.fromJson(order.items[0].toJson());
 
+      // Create order items
       for (var item in widget.cartItems) {
         final bodyOrderItem = <String, dynamic>{
           "order_id": newOrder.id,
@@ -162,10 +209,10 @@ class _OrderTempState extends State<OrderTemp> {
             "quantity": item['quantity'] ?? 1,
           },
         };
-        print("Creating order item with body: $bodyOrderItem");
         await dataBase.pb.collection('order_item').create(body: bodyOrderItem);
       }
 
+      // Update product quantities
       for (var item in widget.cartItems) {
         final productId = item['product_id'];
         final orderedQuantity = item['quantity'] ?? 1;
@@ -181,8 +228,6 @@ class _OrderTempState extends State<OrderTemp> {
 
         if (product.sizes != null && product.sizes!.isNotEmpty) {
           final sizesList = product.sizes!['items'] as List<dynamic>? ?? [];
-          print("Current sizes before update: $sizesList");
-
           bool sizeFound = false;
           for (var sizeEntry in sizesList) {
             if (sizeEntry['size'] == selectedSize) {
@@ -205,10 +250,7 @@ class _OrderTempState extends State<OrderTemp> {
                 "Size $selectedSize not found for product $productId");
           }
 
-          print("Updated sizes: $sizesList");
-
           final updatedSizesString = jsonEncode(sizesList);
-
           final updateBody = <String, dynamic>{
             "sizes": updatedSizesString,
             "updated": DateTime.now().toIso8601String(),
@@ -216,8 +258,6 @@ class _OrderTempState extends State<OrderTemp> {
           await dataBase.pb
               .collection('products')
               .update(productId, body: updateBody);
-        } else {
-          throw Exception("Product $productId has no sizes defined");
         }
       }
 
@@ -231,13 +271,39 @@ class _OrderTempState extends State<OrderTemp> {
               newItem['product_id'] == oldItem['product_id'] &&
               newItem['size'] == oldItem['size']))
           .toList();
-      print("Updated cart items: $listNewItems");
       final bodyCart = <String, dynamic>{
         "order_id": newOrder.id,
         "items": listNewItems,
         "updated": DateTime.now().toIso8601String(),
       };
       await dataBase.pb.collection('cart').update(cart.id, body: bodyCart);
+
+      if (selectedPromotionId != null) {
+        final promoUserRecords = await dataBase.pb
+            .collection('user_promotions')
+            .getFullList(
+                filter:
+                    "user_id = '${user.id}' && promotion_id = '$selectedPromotionId'");
+        if (promoUserRecords.isNotEmpty) {
+          final promoUser =
+              PromotionUser.fromJson(promoUserRecords.first.toJson());
+          await Provider.of<PromotionUserManager>(context, listen: false)
+              .usePromotion(promoUser);
+
+          final promoResponse = await dataBase.pb
+              .collection('promotions')
+              .getOne(selectedPromotionId!);
+          final promotion = Promotion.fromJson(promoResponse.toJson());
+          final newUsedCount = promotion.usedCount + 1;
+
+          await dataBase.pb
+              .collection('promotions')
+              .update(selectedPromotionId!, body: {
+            'used_count': newUsedCount,
+            'updated': DateTime.now().toIso8601String(),
+          });
+        }
+      }
 
       Navigator.push(
         context,
@@ -342,6 +408,22 @@ class _OrderTempState extends State<OrderTemp> {
                 onChanged: (value) {
                   setState(() {
                     paymentMethod = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Promotion',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              PromotionDropdown(
+                promotions: promotionsUserHaved,
+                totalPrice: totalPrice,
+                onChanged: (value) {
+                  setState(() {
+                    selectedPromotionId = value;
+                    totalPrice = _calculateTotalPrice(listProduct);
                   });
                 },
               ),
@@ -622,6 +704,74 @@ class _PaymentDropdownState extends State<PaymentDropdown> {
         onChanged: (value) {
           setState(() {
             selectedMethod = value;
+          });
+          widget.onChanged(value);
+        },
+      ),
+    );
+  }
+}
+
+class PromotionDropdown extends StatefulWidget {
+  final List<Promotion> promotions;
+  final double totalPrice;
+  final Function(String?) onChanged;
+
+  const PromotionDropdown({
+    super.key,
+    required this.promotions,
+    required this.totalPrice,
+    required this.onChanged,
+  });
+
+  @override
+  _PromotionDropdownState createState() => _PromotionDropdownState();
+}
+
+class _PromotionDropdownState extends State<PromotionDropdown> {
+  String? selectedPromotionId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<String>(
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(vertical: 8),
+        ),
+        value: selectedPromotionId,
+        hint: const Text("Select Promotion", style: TextStyle(fontSize: 16)),
+        isExpanded: true,
+        style: const TextStyle(fontSize: 16, color: Colors.black87),
+        dropdownColor: Colors.white,
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+        items: widget.promotions.map((promotion) {
+          final discountText = promotion.discountType == 'percentage'
+              ? '${promotion.discountValue}% off'
+              : '${NumberFormat.currency(locale: 'vi_VN', symbol: 'VND').format(promotion.discountValue)} off';
+          return DropdownMenuItem(
+            value: promotion.id,
+            child: Text(
+              '${promotion.code} ($discountText)',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          );
+        }).toList(),
+        onChanged: (value) {
+          setState(() {
+            selectedPromotionId = value;
           });
           widget.onChanged(value);
         },

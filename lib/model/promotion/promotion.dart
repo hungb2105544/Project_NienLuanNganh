@@ -16,6 +16,7 @@ class Promotion {
   final DateTime endDate;
   final int minOrderValue;
   final int maxUsage;
+  final int usedCount;
   final bool active;
 
   const Promotion({
@@ -28,6 +29,7 @@ class Promotion {
     required this.endDate,
     required this.minOrderValue,
     required this.maxUsage,
+    required this.usedCount,
     required this.active,
   });
 
@@ -41,6 +43,7 @@ class Promotion {
         endDate: DateTime.parse(json["end_date"] as String),
         minOrderValue: json["min_order_value"] as int,
         maxUsage: json["max_usage"] as int,
+        usedCount: json["used_count"] as int? ?? 0,
         active: json["active"] as bool,
       );
 
@@ -54,6 +57,7 @@ class Promotion {
         "end_date": endDate.toIso8601String(),
         "min_order_value": minOrderValue,
         "max_usage": maxUsage,
+        "used_count": usedCount,
         "active": active,
       };
 

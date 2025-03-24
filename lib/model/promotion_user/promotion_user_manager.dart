@@ -16,7 +16,7 @@ class PromotionUserManager extends ChangeNotifier {
     try {
       final records = await promotionUserDatabase.pb
           .collection('user_promotions')
-          .getFullList(filter: "user_id = '$id'");
+          .getFullList(filter: "user_id = '$id' && is_used = false");
       promotionsUser = [];
       for (var record in records) {
         final promotionRecord = await promotionUserDatabase.pb

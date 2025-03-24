@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:project/auth_service.dart';
 import 'package:project/model/promotion/promotion.dart';
 import 'package:project/model/promotion/promotion_manager.dart';
+import 'package:project/model/promotion_user/promotion_user.dart';
 import 'package:project/model/promotion_user/promotion_user_manager.dart';
 import 'package:provider/provider.dart';
 
@@ -14,7 +15,7 @@ class PromotionListScreen extends StatefulWidget {
 
 class _PromotionListScreenState extends State<PromotionListScreen> {
   late Future<void> _fetchPromotions;
-  List<Promotion> _filteredPromotions = []; // Store filtered promotions
+  List<Promotion> _filteredPromotions = [];
   late PromotionManager _promotionManager;
 
   @override
@@ -169,7 +170,6 @@ class _PromotionListScreenState extends State<PromotionListScreen> {
   }
 }
 
-// PromotionCard remains unchanged
 class PromotionCard extends StatefulWidget {
   final Promotion promotion;
   final String userId;
@@ -183,25 +183,48 @@ class PromotionCard extends StatefulWidget {
 
 class _PromotionCardState extends State<PromotionCard> {
   bool _isSaved = false;
+  bool _isUsed = false; // Thêm biến để theo dõi trạng thái isUsed
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _checkIfSaved();
+    _checkPromotionStatus(); // Đổi tên hàm để rõ ràng hơn
   }
 
-  Future<void> _checkIfSaved() async {
+  Future<void> _checkPromotionStatus() async {
     final promotionUserManager =
         Provider.of<PromotionUserManager>(context, listen: false);
     try {
-      await promotionUserManager.getPromotionByPromotionId(widget.promotion.id);
-      final savedPromotions = promotionUserManager.promotions;
+      // Lấy danh sách promotion đã lưu và sử dụng của người dùng dựa trên userId
+      final records = await promotionUserManager.promotionUserDatabase.pb
+          .collection('user_promotions')
+          .getFullList(filter: "user_id = '${widget.userId}'");
+      final promotionUsers =
+          records.map((e) => PromotionUser.fromJson(e.toJson())).toList();
+
       setState(() {
-        _isSaved = savedPromotions.any((p) => p.id == widget.promotion.id);
+        // Kiểm tra xem promotion này đã được lưu chưa
+        _isSaved =
+            promotionUsers.any((pu) => pu.promotionId == widget.promotion.id);
+
+        // Kiểm tra xem promotion này đã được sử dụng chưa
+        final promotionUser = promotionUsers.firstWhere(
+          (pu) => pu.promotionId == widget.promotion.id,
+          orElse: () => PromotionUser(
+            id: '',
+            userId: '',
+            promotionId: '',
+            savedAt: DateTime.now(),
+            isUsed: false,
+            created: DateTime.now(),
+            updated: DateTime.now(),
+          ),
+        );
+        _isUsed = promotionUser.isUsed;
       });
     } catch (e) {
-      print('Error: $e');
+      print('Error checking promotion status: $e');
     }
   }
 
@@ -248,7 +271,7 @@ class _PromotionCardState extends State<PromotionCard> {
         SnackBar(
           content: Row(
             children: [
-              Icon(Icons.done, color: Colors.white, size: 24),
+              Icon(Icons.error, color: Colors.white, size: 24),
               SizedBox(width: 10),
               Text(
                 'Error: $e',
@@ -337,13 +360,22 @@ class _PromotionCardState extends State<PromotionCard> {
                         color: Colors.green,
                       ),
                     ),
+                    if (_isUsed) // Hiển thị trạng thái "Used" nếu đã sử dụng
+                      const Text(
+                        'Used',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
             ElevatedButton(
-              onPressed: _isSaved || _isLoading
-                  ? null
+              onPressed: _isSaved || _isUsed || _isLoading
+                  ? null // Vô hiệu hóa nút nếu đã lưu hoặc đã sử dụng
                   : () {
                       _savePromotion();
                     },
@@ -372,7 +404,11 @@ class _PromotionCardState extends State<PromotionCard> {
                         strokeWidth: 2,
                       ),
                     )
-                  : Text(_isSaved ? 'Saved' : 'Get Now'),
+                  : Text(_isUsed
+                      ? 'Used'
+                      : _isSaved
+                          ? 'Saved'
+                          : 'Get Now'),
             ),
           ],
         ),
