@@ -30,7 +30,6 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
   Future<List<Map<String, dynamic>>> getOrderItems(Order order) async {
     OrderItemManager orderItemManager = OrderItemManager();
     final orderItems = await orderItemManager.getOrderItems(order.id);
-    print("Order items: $orderItems"); // Debug dữ liệu trả về
     return orderItems ?? [];
   }
 
@@ -57,7 +56,6 @@ class _OrderInformationPageState extends State<OrderInformationPage> {
             item['product_id'] != null && item['product_id'] is String)
         .map((item) => item['product_id'] as String)
         .toList();
-    print("Product IDs: $productIds");
 
     final products = await getProductsOfOrder(productIds);
     return orderItems.map((item) {

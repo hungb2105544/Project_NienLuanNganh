@@ -84,24 +84,7 @@ class _AccountPageState extends State<AccountPage> {
                         MaterialPageRoute(builder: (context) => AddressPage()));
                   },
                 ),
-                OptionForAccount(
-                  title: "Settings",
-                  icon: Icons.settings,
-                  onPressed: () {
-                    print("Settings");
-                  },
-                ),
-                OptionForAccount(
-                  title: "Help",
-                  icon: Icons.help_outline,
-                  onPressed: () {
-                    print("Help");
-                  },
-                ),
-
                 const SizedBox(height: 20),
-
-                // Logout Button
                 ElevatedButton(
                   onPressed: () {
                     authService.logout();
