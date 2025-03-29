@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/auth_service.dart';
+import 'package:project/login.dart';
 import 'package:project/model/promotion/promotion.dart';
 import 'package:project/model/promotion/promotion_manager.dart';
 import 'package:project/model/promotion_user/promotion_user.dart';
@@ -88,6 +89,46 @@ class _PromotionListScreenState extends State<PromotionListScreen> {
   Widget build(BuildContext context) {
     AuthService authService = Provider.of<AuthService>(context);
     final user = authService.currentUser;
+    if (user == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'You need to login to view promotions',
+                style: TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => Login()),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 5,
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                child: const Text('Login Now'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -155,7 +196,7 @@ class _PromotionListScreenState extends State<PromotionListScreen> {
                         final promotion = _filteredPromotions[index];
                         return PromotionCard(
                           promotion: promotion,
-                          userId: user!.id,
+                          userId: user.id,
                         );
                       },
                     );
@@ -183,20 +224,19 @@ class PromotionCard extends StatefulWidget {
 
 class _PromotionCardState extends State<PromotionCard> {
   bool _isSaved = false;
-  bool _isUsed = false; // Thêm biến để theo dõi trạng thái isUsed
+  bool _isUsed = false;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _checkPromotionStatus(); // Đổi tên hàm để rõ ràng hơn
+    _checkPromotionStatus();
   }
 
   Future<void> _checkPromotionStatus() async {
     final promotionUserManager =
         Provider.of<PromotionUserManager>(context, listen: false);
     try {
-      // Lấy danh sách promotion đã lưu và sử dụng của người dùng dựa trên userId
       final records = await promotionUserManager.promotionUserDatabase.pb
           .collection('user_promotions')
           .getFullList(filter: "user_id = '${widget.userId}'");
@@ -204,11 +244,9 @@ class _PromotionCardState extends State<PromotionCard> {
           records.map((e) => PromotionUser.fromJson(e.toJson())).toList();
 
       setState(() {
-        // Kiểm tra xem promotion này đã được lưu chưa
         _isSaved =
             promotionUsers.any((pu) => pu.promotionId == widget.promotion.id);
 
-        // Kiểm tra xem promotion này đã được sử dụng chưa
         final promotionUser = promotionUsers.firstWhere(
           (pu) => pu.promotionId == widget.promotion.id,
           orElse: () => PromotionUser(
@@ -307,12 +345,13 @@ class _PromotionCardState extends State<PromotionCard> {
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Container(
-        height: 120,
         padding: const EdgeInsets.all(10),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: widthScreen * 0.2,
+              height: 80,
               decoration: BoxDecoration(
                 color: (widget.promotion.discountType == 'percentage')
                     ? Colors.blue
@@ -332,7 +371,7 @@ class _PromotionCardState extends State<PromotionCard> {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       widget.promotion.code,
@@ -340,6 +379,7 @@ class _PromotionCardState extends State<PromotionCard> {
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 5),
                     Text(
@@ -360,7 +400,7 @@ class _PromotionCardState extends State<PromotionCard> {
                         color: Colors.green,
                       ),
                     ),
-                    if (_isUsed) // Hiển thị trạng thái "Used" nếu đã sử dụng
+                    if (_isUsed)
                       const Text(
                         'Used',
                         style: TextStyle(
@@ -373,42 +413,49 @@ class _PromotionCardState extends State<PromotionCard> {
                 ),
               ),
             ),
-            ElevatedButton(
-              onPressed: _isSaved || _isUsed || _isLoading
-                  ? null // Vô hiệu hóa nút nếu đã lưu hoặc đã sử dụng
-                  : () {
-                      _savePromotion();
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: (widget.promotion.discountType == 'percentage')
-                    ? Colors.blue
-                    : Colors.yellow[700],
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            SizedBox(
+              width: 100,
+              child: ElevatedButton(
+                onPressed: _isSaved || _isUsed || _isLoading
+                    ? null
+                    : () {
+                        _savePromotion();
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      (widget.promotion.discountType == 'percentage')
+                          ? Colors.blue
+                          : Colors.yellow[700],
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 5,
                 ),
-                elevation: 5,
-                textStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        _isUsed
+                            ? 'Used'
+                            : _isSaved
+                                ? 'Saved'
+                                : 'Get Now',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    )
-                  : Text(_isUsed
-                      ? 'Used'
-                      : _isSaved
-                          ? 'Saved'
-                          : 'Get Now'),
+              ),
             ),
           ],
         ),
